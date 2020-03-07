@@ -101,6 +101,15 @@
   </ItemGroup>
   <ItemGroup>
     <InterfaceDefinition Include="Resources\LaunchScreen.storyboard" />
+    <BundleResource Include="Resources\tab_about.png" />
+    <BundleResource Include="Resources\tab_about@2x.png" />
+    <BundleResource Include="Resources\tab_about@3x.png" />
+    <BundleResource Include="Resources\tab_settings.png" />
+    <BundleResource Include="Resources\tab_settings@2x.png" />
+    <BundleResource Include="Resources\tab_settings@3x.png" />
+    <BundleResource Include="Resources\tab_feed.png" />
+    <BundleResource Include="Resources\tab_feed@2x.png" />
+    <BundleResource Include="Resources\tab_feed@3x.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\Contents.json">
       <Visible>false</Visible>
     </ImageAsset>
@@ -187,7 +196,7 @@
       <HintPath>..\packages\Fabulous.XamarinForms.LiveUpdate.0.52.0\lib\netstandard2.0\Fabulous.XamarinForms.LiveUpdate.dll</HintPath>
     </Reference>
   </ItemGroup>
-  <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.FSharp.targets" Condition="Exists('$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.FSharp.targets')"/>
+  <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.FSharp.targets" Condition="Exists('$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.FSharp.targets')" />
   <ItemGroup>
     <ProjectReference Include="..\Relogify\Relogify.fsproj">
       <Project>{C6112E23-56E4-4E15-BF0E-2F831C97C169}</Project>

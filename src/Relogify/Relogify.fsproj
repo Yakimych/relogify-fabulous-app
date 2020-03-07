@@ -6,6 +6,9 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="About.fs" />
+    <Compile Include="Settings.fs" />
+    <Compile Include="AddResult.fs" />
     <Compile Include="Relogify.fs" />
   </ItemGroup>
   <ItemGroup>
