@@ -13,6 +13,10 @@
     <Compile Include="CounterPage.xaml.fs">
       <DependentUpon>CounterPage.xaml</DependentUpon>
     </Compile>
+    <EmbeddedResource Include="MainPage.xaml" />
+    <Compile Include="MainPage.xaml.fs">
+      <DependentUpon>MainPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Relogify.fs" />
   </ItemGroup>
   <ItemGroup>
