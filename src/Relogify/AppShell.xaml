@@ -26,6 +26,7 @@
     </Shell.Resources>
 
     <!-- Your Pages -->
+    <!-- <ShellContent ContentTemplate="{DataTemplate local:MatchTimer}" /> -->
     <TabBar x:Name="TabBar">
     <!--
         <Tab x:Name="MatchTab" Title="Browse" Icon="tab_feed.png">

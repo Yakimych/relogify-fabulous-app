@@ -4,9 +4,14 @@ open Xamarin.Forms
 open Xamarin.Forms.Xaml
 open Fabulous.StaticView
 
+open System
+
 type AboutPage() =
     inherit ContentPage()
     let _ = base.LoadFromXaml(typeof<AboutPage>)
+
+    member this.HandleOpenTimerClicked (sender: Object, e: EventArgs): unit =
+        this.Navigation.PushModalAsync(new NavigationPage(new MatchTimer())) |> ignore
 
 module AboutPage =
     type Model =

@@ -2,14 +2,14 @@
 <ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:Relogify;assembly=Relogify"
-             x:Class="Relogify.AboutPage">
+             x:Class="Relogify.MatchTimer">
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Timer" Clicked="HandleOpenTimerClicked" />
+        <ToolbarItem Text="Close" Clicked="HandleCloseClicked" />
     </ContentPage.ToolbarItems>
     <ContentPage.Content>
         <StackLayout Padding="20">
-            <Label Text="{Binding [AboutPageModel].[SomeText], StringFormat=' value1: {0}'}" />
-            <Button Text="Set Some Text" Command="{Binding Path=[AboutPageModel].[SetSomeText]}" />
+            <Label Text="{Binding Path=[MatchTimerModel].[TimeLeft], StringFormat=' value1: {0}'}" />
+            <Button Text="Set Time Left" Command="{Binding Path=[MatchTimerModel].[SetTimeLeft]}" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>

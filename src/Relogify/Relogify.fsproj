@@ -10,6 +10,10 @@
     <Compile Include="Settings.fs" />
     <Compile Include="AddResult.fs" />
     <EmbeddedResource Include="CounterPage.xaml" />
+    <EmbeddedResource Include="MatchTimer.xaml" />
+    <Compile Include="MatchTimer.xaml.fs">
+      <DependentUpon>MatchTimer.xaml</DependentUpon>
+    </Compile>
     <EmbeddedResource Include="SettingsPage.xaml" />
     <Compile Include="SettingsPage.xaml.fs">
       <DependentUpon>SettingsPage.xaml</DependentUpon>
