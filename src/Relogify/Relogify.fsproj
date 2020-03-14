@@ -9,9 +9,14 @@
     <Compile Include="About.fs" />
     <Compile Include="Settings.fs" />
     <Compile Include="AddResult.fs" />
+    <EmbeddedResource Include="CounterPage.xaml" />
+    <Compile Include="CounterPage.xaml.fs">
+      <DependentUpon>CounterPage.xaml</DependentUpon>
+    </Compile>
     <Compile Include="Relogify.fs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Fabulous.StaticView.XamarinForms" Version="0.52.0" />
     <PackageReference Include="Xamarin.Forms" Version="4.4.0.991265" />
     <PackageReference Include="Xamarin.Essentials" Version="1.1.0" />
     <PackageReference Include="Fabulous.XamarinForms" Version="0.52.0" />

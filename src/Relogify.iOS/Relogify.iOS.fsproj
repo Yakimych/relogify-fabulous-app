@@ -156,6 +156,10 @@
   <Import Project="..\packages\Xamarin.Forms.4.4.0.991265\build\Xamarin.Forms.targets" Condition="Exists('..\packages\Xamarin.Forms.4.4.0.991265\build\Xamarin.Forms.targets')" />
   <Import Project="..\.nuget\NuGet.targets" />
   <ItemGroup>
+    <Reference Include="Fabulous.StaticView.XamarinForms, Version=0.52.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Fabulous.StaticView.XamarinForms.0.52.0\lib\netstandard2.0\Fabulous.StaticView.XamarinForms.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="System" />
     <Reference Include="System.Xml" />
     <Reference Include="System.Core" />
