@@ -6,9 +6,11 @@ open Xamarin.Forms
 
 type Model =
   { Count : int
-    Step : int }
+    Step : int
+    AboutPageModel : AboutPage.Model }
 
 type Msg =
+    | AboutPageMsg of AboutPage.Msg
     | Increment
     | Decrement
     | Reset
@@ -17,7 +19,7 @@ type Msg =
 type App () =
     inherit Application ()
 
-    let init () = { Count = 0; Step = 3 }
+    let init () = { Count = 0; Step = 3; AboutPageModel = AboutPage.init() }
 
     let update msg model =
         match msg with
@@ -25,10 +27,23 @@ type App () =
         | Decrement -> { model with Count = model.Count - model.Step }
         | Reset -> init ()
         | SetStep n -> { model with Step = n }
+        | AboutPageMsg aboutPageMsg ->
+            let newAboutPageModel = AboutPage.update aboutPageMsg model.AboutPageModel
+            { model with AboutPageModel = newAboutPageModel }
 
     let view () =
+        let _, aboutPageViewBinding = AboutPage.view ()
+        let fromAboutPageMsg = fun (aboutPageMsg: AboutPage.Msg) -> aboutPageMsg |> Msg.AboutPageMsg
+
         AppShell (),
-        [ ]
+        [
+            "AboutPageModel"
+            |> Binding.subView
+                (fun _ -> AboutPage.init () |> ignore)
+                (fun m -> m.AboutPageModel)
+                fromAboutPageMsg
+                aboutPageViewBinding
+        ]
 
     do
         let runner =

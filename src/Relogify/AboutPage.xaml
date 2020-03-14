@@ -1,8 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<ContentPage xmlns="http://xamarin.com/schemas/2014/forms" xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml" x:Class="Relogify.AboutPage">
+<ContentPage xmlns="http://xamarin.com/schemas/2014/forms"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:Relogify;assembly=Relogify"
+             x:Class="Relogify.AboutPage">
     <ContentPage.Content>
         <StackLayout Padding="20">
-            <Label Text="About" />
+            <Label Text="{Binding [AboutPageModel].[SomeText], StringFormat=' value1: {0}'}" />
+            <Button Text="Set Some Text" Command="{Binding Path=[AboutPageModel].[SetSomeText]}" />
         </StackLayout>
     </ContentPage.Content>
 </ContentPage>
