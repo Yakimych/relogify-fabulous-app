@@ -3,6 +3,6 @@ namespace Relogify
 open Xamarin.Forms
 open Xamarin.Forms.Xaml
 
-type MainPage() =
+type AboutPage() =
     inherit ContentPage()
-    let _ = base.LoadFromXaml(typeof<MainPage>)
+    let _ = base.LoadFromXaml(typeof<AboutPage>)

@@ -10,12 +10,20 @@
     <Compile Include="Settings.fs" />
     <Compile Include="AddResult.fs" />
     <EmbeddedResource Include="CounterPage.xaml" />
+    <EmbeddedResource Include="SettingsPage.xaml" />
+    <Compile Include="SettingsPage.xaml.fs">
+      <DependentUpon>SettingsPage.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="AboutPage.xaml.fs">
+      <DependentUpon>AboutPage.xaml</DependentUpon>
+    </Compile>
+    <EmbeddedResource Include="AboutPage.xaml" />
     <Compile Include="CounterPage.xaml.fs">
       <DependentUpon>CounterPage.xaml</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="MainPage.xaml" />
-    <Compile Include="MainPage.xaml.fs">
-      <DependentUpon>MainPage.xaml</DependentUpon>
+    <EmbeddedResource Include="AppShell.xaml" />
+    <Compile Include="AppShell.xaml.fs">
+      <DependentUpon>AppShell.xaml</DependentUpon>
     </Compile>
     <Compile Include="Relogify.fs" />
   </ItemGroup>

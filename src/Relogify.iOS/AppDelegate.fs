@@ -13,7 +13,7 @@ type AppDelegate () =
 
     override this.FinishedLaunching (app, options) =
         Forms.Init()
-        let appcore = new Relogify.StaticViewCounterApp()
+        let appcore = new Relogify.App()
         this.LoadApplication (appcore)
         base.FinishedLaunching(app, options)
 
