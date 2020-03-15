@@ -11,6 +11,7 @@ open Xamarin.Forms
 module App =
     type Model =
       { SomeFlag : bool
+        OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
         AddResultModel : AddResult.Model
         AboutModel : About.Model }
@@ -62,6 +63,7 @@ module App =
 
     let initModel () =
         { SomeFlag = false
+          OpponentListModel= OpponentList.initModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
           SettingsModel = Settings.initModel }
@@ -96,6 +98,14 @@ module App =
             shellTabBarTitleColor = Color.White,
             items = [
                 View.TabBar(items = [
+                    View.Tab(
+                        title = "Select Opponent",
+                        icon = Image.Path "tab_about.png",
+                        items = [
+                            View.ShellContent(
+                                content = OpponentList.view model.OpponentListModel
+                            )
+                        ])
                     View.Tab(
                         title = "Add Result",
                         icon = Image.Path "tab_feed.png",
