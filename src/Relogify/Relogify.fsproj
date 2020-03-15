@@ -6,6 +6,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="ConfigManager.fs" />
+    <Compile Include="Graphql.fs" />
     <Compile Include="About.fs" />
     <Compile Include="OpponentList.fs" />
     <Compile Include="Timer.fs" />
@@ -14,8 +16,10 @@
     <Compile Include="AddResult.fs" />
     <Compile Include="Routes.fs" />
     <Compile Include="Relogify.fs" />
+    <EmbeddedResource Include="appsettings.json" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="FSharp.Data.GraphQL.Client" Version="1.0.3" />
     <PackageReference Include="Xamarin.Forms" Version="4.4.0.991265" />
     <PackageReference Include="Xamarin.Essentials" Version="1.1.0" />
     <PackageReference Include="Fabulous.XamarinForms" Version="0.52.0" />
