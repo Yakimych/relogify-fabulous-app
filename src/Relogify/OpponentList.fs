@@ -3,25 +3,30 @@ module Relogify.OpponentList
 open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
+open Relogify.Graphql
 
 type Model =
      { CurrentPlayerName: string
-       OpponentNames: string list }
+       OpponentNames: string array }
 
 let initModel =
     { CurrentPlayerName = "TestPlayer"
-      OpponentNames = [ "PlaceHolder" ] }
+      OpponentNames = [| "PlaceHolder" |] }
 
 type Msg =
     | FetchPlayersClicked
-    | PlayersFetched of string list
+    | PlayersFetched of string array
+    | FetchPlayerError of string
 
 type CmdMsg = FetchPlayersCmdMsg
 
 let fetchPlayersCmd () =
     async {
-        do! Async.Sleep 200
-        return PlayersFetched ["Kalle"; "Leif"]
+        let! result = getPlayersOperation.AsyncRun(runtimeContext, "test")
+        return
+            match result.Data with
+            | Some data -> data.Players |> Array.map (fun p -> p.Name) |> PlayersFetched
+            | None -> FetchPlayerError "Error fetching players" // TODO: Handle errors correctly
     }
     |> Cmd.ofAsyncMsg
 
@@ -33,6 +38,7 @@ let update model msg: Model * CmdMsg list =
     match msg with
     | FetchPlayersClicked -> model, [FetchPlayersCmdMsg]
     | PlayersFetched players -> { model with OpponentNames = players }, []
+    | FetchPlayerError errorMessage -> model, [] // TODO: Handle errors correctly
 
 let view model dispatch =
     View.ContentPage(
@@ -51,13 +57,13 @@ let view model dispatch =
                                 horizontalTextAlignment = TextAlignment.Center)
 
                              yield! model.OpponentNames
-                                    |> List.map (fun opponentName ->
-                                    View.Label(
-                                           text = opponentName,
-                                           horizontalOptions = LayoutOptions.Center,
-                                           width = 200.0,
-                                           horizontalTextAlignment = TextAlignment.Center)
-                                    )
+                                    |> Array.map (fun opponentName ->
+                                        View.Label(
+                                               text = opponentName,
+                                               horizontalOptions = LayoutOptions.Center,
+                                               width = 200.0,
+                                               horizontalTextAlignment = TextAlignment.Center)
+                                        )
 
                              yield View.Button(
                                 text = "Fetch Players",
