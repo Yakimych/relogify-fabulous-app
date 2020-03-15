@@ -25,11 +25,17 @@ type Msg =
     | SetOpponentPoints of int
     | ToggleExtraTime
 
-let update model msg =
+type CmdMsg = Noop
+
+let mapCommands: CmdMsg -> Cmd<Msg> =
+    function
+    | Noop -> Cmd.none
+
+let update model msg: Model * CmdMsg list =
     match msg with
-    | SetOwnPoints newOwnPoints -> { model with OwnPoints = newOwnPoints }, Cmd.none
-    | SetOpponentPoints newOpponentPoints -> { model with OpponentPoints = newOpponentPoints }, Cmd.none
-    | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime }, Cmd.none
+    | SetOwnPoints newOwnPoints -> { model with OwnPoints = newOwnPoints }, []
+    | SetOpponentPoints newOpponentPoints -> { model with OpponentPoints = newOpponentPoints }, []
+    | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime }, []
 
 let getTitle = sprintf "Playing against %s"
 
@@ -84,4 +90,4 @@ let view model dispatch =
                 )
             ]
         )
-    ).ToolbarItems([View.ToolbarItem(text = "Timer", command = (fun () -> ()))])
+    )

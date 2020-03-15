@@ -5,38 +5,86 @@ open System.Diagnostics
 open Fabulous
 open Fabulous.XamarinForms
 open Fabulous.XamarinForms.LiveUpdate
+open Routes
 open Xamarin.Forms
 
 module App =
     type Model =
-      { SettingsModel : Settings.Model
+      { SomeFlag : bool
+        SettingsModel : Settings.Model
         AddResultModel : AddResult.Model
         AboutModel : About.Model }
 
     type Msg =
         | AddResultMsg of AddResult.Msg
         | SettingsMsg of Settings.Msg
+        | ShowTimer
 
-    let initModel =
-        { AboutModel = About.initModel
+    type CmdMsg =
+        | AddResultCmdMsg of AddResult.CmdMsg
+        | SettingsCmdMsg of Settings.CmdMsg
+        | ShowTimerCmdMsg
+
+    let shellRef = ViewRef<Shell>()
+
+    let navigateToPage (pageName: string) =
+        match shellRef.TryValue with
+        | None -> ()
+        | Some shell ->
+            let route = ShellNavigationState.op_Implicit (sprintf "%s?name=whatever" pageName)
+            async {
+                do! shell.GoToAsync route |> Async.AwaitTask
+            } |> Async.StartImmediate
+
+        Cmd.none
+
+    let showTimer () =
+        match shellRef.TryValue with
+        | None -> ()
+        | Some shell ->
+            async {
+                let popModalFunc = fun () -> shell.Navigation.PopModalAsync() |> ignore
+
+                let timerModel = Timer.init popModalFunc
+                let timerView = Timer.view timerModel
+                let timerPage = timerView.Create() :?> Page
+                do! shell.Navigation.PushModalAsync(timerPage) |> Async.AwaitTask
+
+            } |> Async.StartImmediate
+
+        Cmd.none
+
+    let mapCommands cmdMsg =
+        match cmdMsg with
+        | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
+        | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
+        | ShowTimerCmdMsg -> showTimer ()
+
+    let initModel () =
+        { SomeFlag = false
+          AboutModel = About.initModel
           AddResultModel = AddResult.initModel
           SettingsModel = Settings.initModel }
 
-    let init () = initModel, Cmd.none
+    let init () =
+        Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
+        initModel (), []
 
     let update msg model =
         match msg with
         | AddResultMsg addResultMsg ->
-            let addResultModel, addResultMsg = AddResult.update model.AddResultModel addResultMsg
-            { model with AddResultModel = addResultModel }, Cmd.map AddResultMsg addResultMsg
+            let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg
+            { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
         | SettingsMsg settingsMsg ->
-            let settingsModel, settingsCmd = Settings.update model.SettingsModel settingsMsg
-            { model with SettingsModel = settingsModel }, Cmd.map SettingsMsg settingsCmd
+            let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
+            { model with SettingsModel = settingsModel }, settingsCmdMsgs |> List.map SettingsCmdMsg
+        | ShowTimer -> model, [ShowTimerCmdMsg]
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
 
     let view (model: Model) dispatch =
         View.Shell(
+            ref=shellRef,
             shellBackgroundColor = navigationPrimaryColor,
             shellForegroundColor = Color.White,
             shellTitleColor = Color.White,
@@ -53,7 +101,15 @@ module App =
                         icon = Image.Path "tab_feed.png",
                         items = [
                             View.ShellContent(
-                                content = AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch)
+                                content =
+                                    (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch))
+                                        .ToolbarItems(
+                                            [
+                                                View.ToolbarItem(
+                                                    text = "Timer",
+                                                    command = (fun () -> dispatch ShowTimer)
+                                                )
+                                            ])
                             )
                         ])
                     View.Tab(
@@ -76,7 +132,7 @@ module App =
             ])
 
     // Note, this declaration is needed if you enable LiveUpdate
-    let program = Program.mkProgram init update view
+    let program = Program.mkProgramWithCmdMsg init update view mapCommands
 
 type App () as app =
     inherit Application ()

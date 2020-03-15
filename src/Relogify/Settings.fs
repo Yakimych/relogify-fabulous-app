@@ -25,7 +25,7 @@ let initModel =
       ShowChooseCommunity = true
       CanCancelDialog = true
       IsChoosingPlayer = false // TODO: This should be a function calculating the value based on the current view state
-      CanTriggerLoadPlayers = false
+      CanTriggerLoadPlayers = true
       IsLoadingPlayers = false }
 
 type Msg =
@@ -34,19 +34,25 @@ type Msg =
     | FetchPlayersClicked
     | PlayersFetched of string
 
-let fetchPlayersCmd =
+type CmdMsg = FetchPlayersCmdMsg
+
+let fetchPlayersCmd () =
     async {
         do! Async.Sleep 200
-        return Msg.PlayersFetched "players"
+        return PlayersFetched "players"
     }
     |> Cmd.ofAsyncMsg
 
-let update model msg =
+let mapCommands =
+    function
+    | FetchPlayersCmdMsg -> fetchPlayersCmd()
+
+let update model msg: Model * CmdMsg list =
     match msg with
-    | CommunityNameChanged newCommunityName -> { model with CommunityName = newCommunityName }, Cmd.none
-    | PlayerNameChanged newPlayerName -> { model with PlayerName = newPlayerName }, Cmd.none
-    | FetchPlayersClicked -> model, fetchPlayersCmd
-    | PlayersFetched players -> { model with PlayerName = players }, Cmd.none
+    | CommunityNameChanged newCommunityName -> { model with CommunityName = newCommunityName }, []
+    | PlayerNameChanged newPlayerName -> { model with PlayerName = newPlayerName }, []
+    | FetchPlayersClicked -> model, [FetchPlayersCmdMsg]
+    | PlayersFetched players -> { model with PlayerName = players }, []
 
 // TODO: Break up into smaller functions
 let view model dispatch =
@@ -122,7 +128,12 @@ let view model dispatch =
                                                  View.Label(text = "The community name is the last part of your Relogify URL: ")
                                                  View.Label(text = "TODO: Formatted text")
                                                  View.Grid(children = [
-                                                     View.Button(text = "Fetch Players", isEnabled = model.CanTriggerLoadPlayers, backgroundColor = Color.LightGreen)
+                                                     View.Button(
+                                                         text = "Fetch Players",
+                                                         isEnabled = model.CanTriggerLoadPlayers,
+                                                         backgroundColor = Color.LightGreen,
+                                                         command = (fun _ -> dispatch FetchPlayersClicked)
+                                                     )
                                                      View.ActivityIndicator(
                                                         horizontalOptions = LayoutOptions.End,
                                                         margin = Thickness(0.0, 0.0, 40.0, 0.0),
