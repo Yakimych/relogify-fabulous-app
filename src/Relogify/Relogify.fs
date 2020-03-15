@@ -17,11 +17,13 @@ module App =
         AboutModel : About.Model }
 
     type Msg =
+        | OpponentListMsg of OpponentList.Msg
         | AddResultMsg of AddResult.Msg
         | SettingsMsg of Settings.Msg
         | ShowTimer
 
     type CmdMsg =
+        | OpponentListCmdMsg of OpponentList.CmdMsg
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
         | ShowTimerCmdMsg
@@ -57,6 +59,7 @@ module App =
 
     let mapCommands cmdMsg =
         match cmdMsg with
+        | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
         | ShowTimerCmdMsg -> showTimer ()
@@ -74,6 +77,9 @@ module App =
 
     let update msg model =
         match msg with
+        | OpponentListMsg opponentListMsg ->
+            let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel opponentListMsg
+            { model with OpponentListModel= opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
         | AddResultMsg addResultMsg ->
             let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg
             { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
@@ -103,7 +109,7 @@ module App =
                         icon = Image.Path "tab_about.png",
                         items = [
                             View.ShellContent(
-                                content = OpponentList.view model.OpponentListModel
+                                content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
                             )
                         ])
                     View.Tab(
