@@ -4,6 +4,7 @@ open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
 open System
+open Xamarin.Forms
 
 type Settings = { CommunityName: string; PlayerName: string }
 
@@ -83,19 +84,22 @@ let isFetchingPlayers =
     | FetchingPlayers _ -> true
     | _ -> false
 
-let dialogHeader (model: Model) dispatch =
+let dialogBackdrop (isVisible: bool): ViewElement =
     View.StackLayout(
-//        isVisible = dialogIsOpen model, // TODO: Do not render this if not visible
-        isVisible = true,
+        isVisible = isVisible,
         backgroundColor = Color.Black,
-        opacity = 0.5
+        orientation = StackOrientation.Vertical,
+        verticalOptions = LayoutOptions.FillAndExpand,
+        opacity = 0.5,
+        children = [
+            View.Label(text = "asd", verticalOptions = LayoutOptions.FillAndExpand)
+        ]
     )
 
 let shouldShowDialog =
     function
     | Viewing _ -> false
     | _ -> true
-
 
 let canTriggerLoadPlayers communityName = String.IsNullOrEmpty(communityName) |> not
 
@@ -131,14 +135,42 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
          ]
      ).Row(0)
 
+let playerInput (model: Model) dispatch =
+    View.StackLayout(
+        margin = Thickness(10.0),
+        orientation = StackOrientation.Vertical,
+        children = [
+            View.Label(text = "Step 2: Select yur player in ")
+            View.Label(text = "TODO: Formatted text")
+
+            View.Picker(
+                title = "Select Player",
+                items = ["asd"],
+                selectedIndex = 0 // TODO: "Bind" to the model
+            )
+            View.Grid(
+                coldefs = [ Star; Star ],
+                children = [
+                    View.Button(
+                        text = "Back",
+                        backgroundColor = Color.Red,
+                        width = 50.0
+                        // TODO: Command
+                    ).Column(0)
+                    View.Button(
+                        text = "Save",
+                        backgroundColor = Color.LightGreen
+                        // TODO: Command
+                    ).Column(1)
+                ]
+            )
+        ]
+    ).Row(0)
 
 // TODO: Break up the model into parts and only pass the dialogModel here
 let dialogBody (model: Model) dispatch =
-    let showDialog = model |> shouldShowDialog
-//    let showDialog = true
-
     View.StackLayout(
-        isVisible = showDialog,
+        isVisible = shouldShowDialog model,
         margin = Thickness(30.0, 50.0, 30.0, 50.0),
         backgroundColor = Color.White,
         orientation = StackOrientation.Vertical,
@@ -178,38 +210,7 @@ let dialogBody (model: Model) dispatch =
                                  | Viewing _ -> communityInput "" false dispatch // TODO: Remove
                                  | EditingCommunityName (_, communityName) -> communityInput communityName false dispatch
                                  | FetchingPlayers (_, communityName) -> communityInput communityName true dispatch
-                                 | ChoosingPlayer (_, players, newSettings) ->
-                                     // TODO: Extract function
-                                     View.StackLayout(
-                                         margin = Thickness(10.0),
-                                         orientation = StackOrientation.Vertical,
-                                         children = [
-                                             View.Label(text = "Step 2: Select yur player in ")
-                                             View.Label(text = "TODO: Formatted text")
-
-                                             View.Picker(
-                                                 title = "Select Player",
-                                                 items = ["asd"],
-                                                 selectedIndex = 0 // TODO: "Bind" to the model
-                                             )
-                                             View.Grid(
-                                                 coldefs = [ Star; Star ],
-                                                 children = [
-                                                     View.Button(
-                                                         text = "Back",
-                                                         backgroundColor = Color.Red,
-                                                         width = 50.0
-                                                         // TODO: Command
-                                                     ).Column(0)
-                                                     View.Button(
-                                                         text = "Save",
-                                                         backgroundColor = Color.LightGreen
-                                                         // TODO: Command
-                                                     ).Column(1)
-                                                 ]
-                                             )
-                                         ]
-                                     ).Row(0)
+                                 | ChoosingPlayer (_, players, newSettings) -> playerInput model dispatch
 
                              yield View.Button(
                                      text = "Cancel",
@@ -229,31 +230,32 @@ let view (model: Model) dispatch =
 
     View.ContentPage(
         title = "Settings",
-        content = View.CollectionView(
-            items = [
-                yield View.Grid
-                    (margin = Thickness(10.0),
-                     coldefs = [ Auto; Star ],
-                     rowdefs = [ for _ in 1 .. 3 -> Auto ],
-                     children =
-                         [ View.Label(text = "Community: ", fontSize = FontSize.Named(NamedSize.Large),
-                                      margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(0).Column(0)
-                           View.Label(text = currentSettings.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
-                                      margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(0).Column(1)
-                           View.Label(text = "Player: ", fontSize = FontSize.Named(NamedSize.Large),
-                                      margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(1).Column(0)
-                           View.Label(text = currentSettings.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
-                                      margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
-                           View.Button(text = "Edit", backgroundColor = Color.Orange, textColor = Color.Black,
-                                       fontSize = FontSize.Named(NamedSize.Large),
-                                       margin = Thickness(15.0), height = 60.0, cornerRadius = 10, borderWidth = 2.0,
-                                       command = (fun _ -> dispatch OpenDialog)).Row(2).Column(0)
-                               .ColumnSpan(2) ])
+        content =
+            View.Grid(
+                children = [
+                    yield View.Grid
+                        (margin = Thickness(10.0),
+                         coldefs = [ Auto; Star ],
+                         rowdefs = [ for _ in 1 .. 3 -> Auto ],
+                         children =
+                             [ View.Label(text = "Community: ", fontSize = FontSize.Named(NamedSize.Large),
+                                          margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(0)
+                               View.Label(text = currentSettings.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
+                                          margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(1)
+                               View.Label(text = "Player: ", fontSize = FontSize.Named(NamedSize.Large),
+                                          margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(0)
+                               View.Label(text = currentSettings.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
+                                          margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
+                               View.Button(text = "Edit", backgroundColor = Color.Orange, textColor = Color.Black,
+                                           fontSize = FontSize.Named(NamedSize.Large),
+                                           margin = Thickness(15.0), height = 60.0, cornerRadius = 10, borderWidth = 2.0,
+                                           command = (fun _ -> dispatch OpenDialog)).Row(2).Column(0)
+                                   .ColumnSpan(2) ])
 
-                yield dialogHeader model dispatch
-                yield dialogBody model dispatch
-            ]
-        )
+                    yield dialogBackdrop (model |> shouldShowDialog)
+                    yield dialogBody model dispatch
+                ]
+            )
     )
 
 
