@@ -3,43 +3,58 @@ module Relogify.Settings
 open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
+open System
+
+type Settings = { CommunityName: string; PlayerName: string }
 
 type Model =
-    { CommunityName: string
-      PlayerName: string
-      DraftCommunityName: string
-      DraftPlayerName: string
-      CommunityDialogIsOpen : bool
-      ShowChooseCommunity : bool
-      CanCancelDialog : bool
-      IsChoosingPlayer : bool
-      CanTriggerLoadPlayers : bool
-      IsLoadingPlayers : bool }
-
-let initModel =
-    { CommunityName = "testcommunity"
-      PlayerName = "testplayer"
-      DraftCommunityName = "testcommunity"
-      DraftPlayerName = "testplayer"
-      CommunityDialogIsOpen = true
-      ShowChooseCommunity = true
-      CanCancelDialog = true
-      IsChoosingPlayer = false // TODO: This should be a function calculating the value based on the current view state
-      CanTriggerLoadPlayers = true
-      IsLoadingPlayers = false }
+    | Viewing of Settings
+    | EditingCommunityName of Settings * string
+    | FetchingPlayers of Settings * string
+    | ChoosingPlayer of Settings * string list * Settings // CurrentSettings, Player list, and Settings under edit
 
 type Msg =
-    | CommunityNameChanged of string
-    | PlayerNameChanged of string
-    | FetchPlayersClicked
-    | PlayersFetched of string
+    | OpenDialog
+    | SetCommunityName of string
+    | StartFetchingPlayers
+    | FetchingPlayersSuccess of string list
+    | BackToEditCommunity
+    | SelectPlayer of string
+    | SaveSettings
+    | CancelDialog
+
+let performTransition (state: Model) (transition: Msg): Model =
+    match (state, transition) with
+    | (Viewing currentSettings, OpenDialog) ->
+        EditingCommunityName (currentSettings, currentSettings.CommunityName)
+    | (EditingCommunityName (currentSettings, _), SetCommunityName newCommunityName) ->
+        EditingCommunityName (currentSettings, newCommunityName)
+    | (EditingCommunityName (currentSettings, communityName), StartFetchingPlayers) ->
+        FetchingPlayers (currentSettings, communityName) // TODO: FetchPlayers Cmd
+    | (FetchingPlayers (currentSettings, communityName), FetchingPlayersSuccess playerList) ->
+        ChoosingPlayer (currentSettings, playerList, { CommunityName = communityName; PlayerName = "" })
+//    | (FetchingPlayers, FetchingPlayersError errorMessage) ->
+//        ErrorFetchingPlayers errorMessage
+    | (ChoosingPlayer (currentSettings, playerList, newSettings), SelectPlayer newSelectedPlayer) ->
+        ChoosingPlayer (currentSettings, playerList, { newSettings with PlayerName = newSelectedPlayer })
+    | (ChoosingPlayer (currentSettings, playerList, newSettings), BackToEditCommunity) ->
+        EditingCommunityName (currentSettings, newSettings.CommunityName)
+    | (EditingCommunityName (currentSettings, _), CancelDialog) ->
+        Viewing currentSettings
+    | (ChoosingPlayer (currentSettings, _, _), CancelDialog) ->
+        Viewing currentSettings
+    | (ChoosingPlayer (_, playerList, newSettings), SaveSettings) ->
+        Viewing newSettings // TODO: SaveSettings Cmd
+    | (currentState, disallowedTransition) -> currentState
+
+let initModel = Model.Viewing { CommunityName = "testcommunity"; PlayerName = "testplayer" }
 
 type CmdMsg = FetchPlayersCmdMsg
 
 let fetchPlayersCmd () =
     async {
         do! Async.Sleep 200
-        return PlayersFetched "players"
+        return FetchingPlayersSuccess ["player1"; "player2"]
     }
     |> Cmd.ofAsyncMsg
 
@@ -48,145 +63,198 @@ let mapCommands =
     | FetchPlayersCmdMsg -> fetchPlayersCmd()
 
 let update model msg: Model * CmdMsg list =
-    match msg with
-    | CommunityNameChanged newCommunityName -> { model with CommunityName = newCommunityName }, []
-    | PlayerNameChanged newPlayerName -> { model with PlayerName = newPlayerName }, []
-    | FetchPlayersClicked -> model, [FetchPlayersCmdMsg]
-    | PlayersFetched players -> { model with PlayerName = players }, []
+    let newModel = performTransition model msg
+    newModel, []
 
-// TODO: Break up into smaller functions
-let view model dispatch =
+let dialogIsOpen =
+    function
+    | Viewing _ -> false
+    | _ -> true
+
+let getCurrentSettings =
+    function
+    | Viewing currentSettings -> currentSettings
+    | EditingCommunityName (currentSettings, _) -> currentSettings
+    | FetchingPlayers (currentSettings, _) -> currentSettings
+    | ChoosingPlayer (currentSettings, _, _) -> currentSettings
+
+let isFetchingPlayers =
+    function
+    | FetchingPlayers _ -> true
+    | _ -> false
+
+let dialogHeader (model: Model) dispatch =
+    View.StackLayout(
+//        isVisible = dialogIsOpen model, // TODO: Do not render this if not visible
+        isVisible = true,
+        backgroundColor = Color.Black,
+        opacity = 0.5
+    )
+
+let shouldShowDialog =
+    function
+    | Viewing _ -> false
+    | _ -> true
+
+
+let canTriggerLoadPlayers communityName = String.IsNullOrEmpty(communityName) |> not
+
+let canCancelDialog =
+    function
+    | Viewing _ -> false
+    | EditingCommunityName (currentSettings, _) -> String.IsNullOrEmpty(currentSettings.CommunityName) |> not
+    | FetchingPlayers (currentSettings, _) -> String.IsNullOrEmpty(currentSettings.CommunityName) |> not
+    | ChoosingPlayer (currentSettings, _, _) -> String.IsNullOrEmpty(currentSettings.CommunityName) |> not
+
+let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
+     View.StackLayout(
+         margin = Thickness(10.0),
+         children = [
+             View.Label(text = "Step 1: Enter the community name")
+             View.Entry(text = communityName) // TODO: , keyboard = Entry.KeyboardProperty())
+             View.Label(text = "The community name is the last part of your Relogify URL: ")
+             View.Label(text = "TODO: Formatted text")
+             View.Grid(children = [
+                 View.Button(
+                     text = "Fetch Players",
+                     isEnabled = canTriggerLoadPlayers communityName,
+                     backgroundColor = Color.LightGreen,
+                     command = (fun _ -> dispatch StartFetchingPlayers)
+                 )
+                 View.ActivityIndicator(
+                    horizontalOptions = LayoutOptions.End,
+                    margin = Thickness(0.0, 0.0, 40.0, 0.0),
+                    isVisible = isFetchingPlayers,
+                    isRunning = isFetchingPlayers
+                 )
+             ])
+         ]
+     ).Row(0)
+
+
+// TODO: Break up the model into parts and only pass the dialogModel here
+let dialogBody (model: Model) dispatch =
+    let showDialog = model |> shouldShowDialog
+//    let showDialog = true
+
+    View.StackLayout(
+        isVisible = showDialog,
+        margin = Thickness(30.0, 50.0, 30.0, 50.0),
+        backgroundColor = Color.White,
+        orientation = StackOrientation.Vertical,
+        horizontalOptions = LayoutOptions.FillAndExpand,
+        verticalOptions = LayoutOptions.FillAndExpand,
+        children = [
+            View.StackLayout(
+                orientation = StackOrientation.Vertical,
+                horizontalOptions = LayoutOptions.FillAndExpand,
+                verticalOptions = LayoutOptions.FillAndExpand,
+                children = [
+                    View.StackLayout(
+                        height = 60.0,
+                        backgroundColor = Color.Accent,
+                        horizontalOptions = LayoutOptions.FillAndExpand,
+                        orientation = StackOrientation.Horizontal,
+                        children = [
+                            View.Label(
+                                  text = "Select Player",
+                                  textColor = Color.White,
+                                  horizontalOptions = LayoutOptions.FillAndExpand,
+                                  verticalOptions = LayoutOptions.FillAndExpand,
+                                  fontSize = FontSize.Named(NamedSize.Large),
+                                  margin = Thickness(20.0, 10.0, 0.0, 10.0)
+                              )
+                        ]
+                    )
+
+                    View.Grid(
+                         margin = Thickness(10.0),
+                         verticalOptions = LayoutOptions.FillAndExpand,
+                         rowdefs = [ Star; Auto ],
+                         children = [
+                             yield
+                                 match model with
+//                                 | Viewing _ -> failwith "TODO: Should never happen"
+                                 | Viewing _ -> communityInput "" false dispatch // TODO: Remove
+                                 | EditingCommunityName (_, communityName) -> communityInput communityName false dispatch
+                                 | FetchingPlayers (_, communityName) -> communityInput communityName true dispatch
+                                 | ChoosingPlayer (_, players, newSettings) ->
+                                     // TODO: Extract function
+                                     View.StackLayout(
+                                         margin = Thickness(10.0),
+                                         orientation = StackOrientation.Vertical,
+                                         children = [
+                                             View.Label(text = "Step 2: Select yur player in ")
+                                             View.Label(text = "TODO: Formatted text")
+
+                                             View.Picker(
+                                                 title = "Select Player",
+                                                 items = ["asd"],
+                                                 selectedIndex = 0 // TODO: "Bind" to the model
+                                             )
+                                             View.Grid(
+                                                 coldefs = [ Star; Star ],
+                                                 children = [
+                                                     View.Button(
+                                                         text = "Back",
+                                                         backgroundColor = Color.Red,
+                                                         width = 50.0
+                                                         // TODO: Command
+                                                     ).Column(0)
+                                                     View.Button(
+                                                         text = "Save",
+                                                         backgroundColor = Color.LightGreen
+                                                         // TODO: Command
+                                                     ).Column(1)
+                                                 ]
+                                             )
+                                         ]
+                                     ).Row(0)
+
+                             yield View.Button(
+                                     text = "Cancel",
+                                     isVisible = canCancelDialog model,
+                                     backgroundColor = Color.LightGray,
+                                     command = (fun _ -> dispatch CancelDialog)
+                                 ).Row(1)
+                         ]
+                     )
+                ]
+            )
+        ]
+    )
+
+let view (model: Model) dispatch =
+    let currentSettings = model |> getCurrentSettings
+
     View.ContentPage(
         title = "Settings",
         content = View.CollectionView(
             items = [
-                View.Grid
+                yield View.Grid
                     (margin = Thickness(10.0),
                      coldefs = [ Auto; Star ],
                      rowdefs = [ for _ in 1 .. 3 -> Auto ],
                      children =
                          [ View.Label(text = "Community: ", fontSize = FontSize.Named(NamedSize.Large),
                                       margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(0).Column(0)
-                           View.Label(text = model.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
+                           View.Label(text = currentSettings.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
                                       margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(0).Column(1)
                            View.Label(text = "Player: ", fontSize = FontSize.Named(NamedSize.Large),
                                       margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(1).Column(0)
-                           View.Label(text = model.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
+                           View.Label(text = currentSettings.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
                                       margin = Thickness(left = 15.0, top = 0.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
                            View.Button(text = "Edit", backgroundColor = Color.Orange, textColor = Color.Black,
                                        fontSize = FontSize.Named(NamedSize.Large),
-                                       margin = Thickness(15.0), height = 60.0, cornerRadius = 10, borderWidth = 2.0).Row(2).Column(0)
+                                       margin = Thickness(15.0), height = 60.0, cornerRadius = 10, borderWidth = 2.0,
+                                       command = (fun _ -> dispatch OpenDialog)).Row(2).Column(0)
                                .ColumnSpan(2) ])
 
-                View.StackLayout(
-                    isVisible = model.CommunityDialogIsOpen,
-                    backgroundColor = Color.Black,
-                    opacity = 0.5
-                )
-
-                View.StackLayout(
-                    isVisible = model.CommunityDialogIsOpen,
-                    margin = Thickness(30.0, 50.0, 30.0, 50.0),
-                    backgroundColor = Color.White,
-                    orientation = StackOrientation.Vertical,
-                    horizontalOptions = LayoutOptions.FillAndExpand,
-                    verticalOptions = LayoutOptions.FillAndExpand,
-                    children = [
-                        View.StackLayout(
-                            orientation = StackOrientation.Vertical,
-                            horizontalOptions = LayoutOptions.FillAndExpand,
-                            verticalOptions = LayoutOptions.FillAndExpand,
-                            children = [
-                                View.StackLayout(
-                                    height = 60.0,
-                                    backgroundColor = Color.Accent,
-                                    horizontalOptions = LayoutOptions.FillAndExpand,
-                                    orientation = StackOrientation.Horizontal,
-                                    children = [
-                                        View.Label(
-                                              text = "Select Player",
-                                              textColor = Color.White,
-                                              horizontalOptions = LayoutOptions.FillAndExpand,
-                                              verticalOptions = LayoutOptions.FillAndExpand,
-                                              fontSize = FontSize.Named(NamedSize.Large),
-                                              margin = Thickness(20.0, 10.0, 0.0, 10.0)
-                                          )
-                                    ]
-                                )
-
-                                View.Grid(
-                                     margin = Thickness(10.0),
-                                     verticalOptions = LayoutOptions.FillAndExpand,
-                                     rowdefs = [ Star; Auto ],
-                                     children = [
-                                         View.StackLayout(
-                                             margin = Thickness(10.0),
-                                             isVisible = model.ShowChooseCommunity,
-                                             children = [
-                                                 View.Label(text = "Step 1: Enter the community name")
-                                                 View.Entry(text = model.DraftCommunityName) // TODO: , keyboard = Entry.KeyboardProperty())
-                                                 View.Label(text = "The community name is the last part of your Relogify URL: ")
-                                                 View.Label(text = "TODO: Formatted text")
-                                                 View.Grid(children = [
-                                                     View.Button(
-                                                         text = "Fetch Players",
-                                                         isEnabled = model.CanTriggerLoadPlayers,
-                                                         backgroundColor = Color.LightGreen,
-                                                         command = (fun _ -> dispatch FetchPlayersClicked)
-                                                     )
-                                                     View.ActivityIndicator(
-                                                        horizontalOptions = LayoutOptions.End,
-                                                        margin = Thickness(0.0, 0.0, 40.0, 0.0),
-                                                        isVisible = model.IsLoadingPlayers,
-                                                        isRunning = model.IsLoadingPlayers
-                                                     )
-                                                 ])
-                                             ]
-                                         ).Row(0)
-
-                                         View.StackLayout(
-                                             margin = Thickness(10.0),
-                                             isVisible = model.IsChoosingPlayer,
-                                             orientation = StackOrientation.Vertical,
-                                             children = [
-                                                 View.Label(text = "Step 2: Select yur player in ")
-                                                 View.Label(text = "TODO: Formatted text")
-
-                                                 View.Picker(
-                                                     title = "Select Player",
-                                                     items = ["asd"],
-                                                     selectedIndex = 0 // TODO: "Bind" to the model
-                                                 )
-                                                 View.Grid(
-                                                     coldefs = [ Star; Star ],
-                                                     children = [
-                                                         View.Button(
-                                                             text = "Back",
-                                                             backgroundColor = Color.Red,
-                                                             width = 50.0
-                                                             // TODO: Command
-                                                         ).Column(0)
-                                                         View.Button(
-                                                             text = "Save",
-                                                             backgroundColor = Color.LightGreen
-                                                             // TODO: Command
-                                                         ).Column(1)
-                                                     ]
-                                                 )
-                                             ]
-                                         ).Row(0)
-
-                                         View.Button(
-                                             text = "Cancel",
-                                             isVisible = model.CanCancelDialog,
-                                             backgroundColor = Color.LightGray
-                                         ).Row(1)
-                                     ]
-                                 )
-                            ]
-                        )
-                    ]
-                )
+                yield dialogHeader model dispatch
+                yield dialogBody model dispatch
             ]
         )
     )
+
+
+
