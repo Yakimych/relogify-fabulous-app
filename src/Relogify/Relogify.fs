@@ -103,48 +103,49 @@ module App =
             shellTabBarUnselectedColor = Color.FromHex("#95FFFFFF"),
             shellTabBarTitleColor = Color.White,
             items = [
-                View.TabBar(items = [
-                    View.Tab(
-                        title = "Select Opponent",
-                        icon = Image.Path "tab_about.png",
-                        items = [
-                            View.ShellContent(
-                                content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
-                            )
-                        ])
-                    View.Tab(
-                        title = "Add Result",
-                        icon = Image.Path "tab_feed.png",
-                        items = [
-                            View.ShellContent(
-                                content =
-                                    (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch))
-                                        .ToolbarItems(
-                                            [
-                                                View.ToolbarItem(
-                                                    text = "Timer",
-                                                    command = (fun () -> dispatch ShowTimer)
-                                                )
-                                            ])
-                            )
-                        ])
-                    View.Tab(
-                        title = "Settings",
-                        icon = Image.Path "tab_settings.png",
-                        items = [
-                            View.ShellContent(
-                                content = Settings.view model.SettingsModel (Msg.SettingsMsg >> dispatch)
-                            )
-                        ])
-                    View.Tab(
-                        title = "About",
-                        icon = Image.Path "tab_about.png",
-                        items = [
-                            View.ShellContent(
-                                content = About.view model.AboutModel
-                            )
-                        ])
-                ])
+                View.TabBar(
+                    items = [
+                        View.Tab(
+                            title = "Settings",
+                            icon = Image.Path "tab_settings.png",
+                            items = [
+                                View.ShellContent(
+                                    content = Settings.view model.SettingsModel (Msg.SettingsMsg >> dispatch)
+                                )
+                            ])
+                        View.Tab(
+                            title = "Select Opponent",
+                            icon = Image.Path "tab_about.png",
+                            items = [
+                                View.ShellContent(
+                                    content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
+                                )
+                            ])
+                        View.Tab(
+                            title = "Add Result",
+                            icon = Image.Path "tab_feed.png",
+                            items = [
+                                View.ShellContent(
+                                    content =
+                                        (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch))
+                                            .ToolbarItems(
+                                                [
+                                                    View.ToolbarItem(
+                                                        text = "Timer",
+                                                        command = (fun () -> dispatch ShowTimer)
+                                                    )
+                                                ])
+                                )
+                            ])
+                        View.Tab(
+                            title = "About",
+                            icon = Image.Path "tab_about.png",
+                            items = [
+                                View.ShellContent(
+                                    content = About.view model.AboutModel
+                                )
+                            ])
+                    ])
             ])
 
     // Note, this declaration is needed if you enable LiveUpdate
