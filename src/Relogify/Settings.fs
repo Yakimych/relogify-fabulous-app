@@ -32,6 +32,10 @@ type CmdMsg =
     | FetchPlayersCmdMsg
     | SaveSettingsCmdMsg of Settings
 
+let toApplicationSettings (settings: Settings): ApplicationSettings =
+    { CommunityName = settings.CommunityName |> stringToOption
+      PlayerName = settings.PlayerName |> stringToOption }
+
 let performTransition (state: DialogState) (transition: Msg): DialogState * CmdMsg list =
     match (state, transition) with
     | (Closed, OpenDialog savedCommunityName) ->
@@ -86,12 +90,7 @@ let mapCommands =
 
 let update model msg: Model * CmdMsg list =
     let newDialogState, cmdMsgList = performTransition model.DialogState msg
-    let newModel =
-        match msg with
-        | SettingsSaved newSettings -> { model with Settings = newSettings }
-        | _ -> model
-
-    { newModel with DialogState = newDialogState }, cmdMsgList
+    { model with DialogState = newDialogState }, cmdMsgList
 
 let dialogIsOpen =
     function

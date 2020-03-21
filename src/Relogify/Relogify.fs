@@ -2,9 +2,11 @@
 namespace Relogify
 
 open System.Diagnostics
+open System
 open Fabulous
 open Fabulous.XamarinForms
 open Fabulous.XamarinForms.LiveUpdate
+open Relogify.ApplicationSettings
 open Routes
 open Xamarin.Forms
 
@@ -14,6 +16,7 @@ module App =
         OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
         AddResultModel : AddResult.Model
+        ApplicationSettings : ApplicationSettings
         AboutModel : About.Model }
 
     type Msg =
@@ -70,6 +73,7 @@ module App =
           OpponentListModel= OpponentList.initModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
+          ApplicationSettings = applicationSettings
           SettingsModel = Settings.initModel applicationSettings }
 
     let init () =
@@ -86,7 +90,13 @@ module App =
             { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
-            { model with SettingsModel = settingsModel }, settingsCmdMsgs |> List.map SettingsCmdMsg
+            let updatedModel = { model with SettingsModel = settingsModel }
+
+            match settingsMsg with
+            | Settings.SettingsSaved newSettings ->
+                let updatedSettingsModel = { settingsModel with Settings = newSettings }
+                { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings; SettingsModel = updatedSettingsModel }, settingsCmdMsgs |> List.map SettingsCmdMsg
+            | _ -> updatedModel, settingsCmdMsgs |> List.map SettingsCmdMsg
         | ShowTimer -> model, [ShowTimerCmdMsg]
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
