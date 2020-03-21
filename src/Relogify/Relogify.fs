@@ -101,6 +101,11 @@ module App =
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
 
+    let hasApplicationSettings (model: Model) =
+        match model.ApplicationSettings.CommunityName, model.ApplicationSettings.PlayerName with
+        | Some _, Some _ -> true
+        | _ -> false
+
     let view (model: Model) dispatch =
         View.Shell(
             ref=shellRef,
@@ -127,6 +132,7 @@ module App =
                         View.Tab(
                             title = "Select Opponent",
                             icon = Image.Path "tab_about.png",
+                            isEnabled = hasApplicationSettings model,
                             items = [
                                 View.ShellContent(
                                     content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
