@@ -2,6 +2,7 @@ module Relogify.Settings
 
 open Fabulous
 open Fabulous.XamarinForms
+open Relogify
 open Xamarin.Forms
 open System
 
@@ -23,37 +24,46 @@ type Msg =
     | BackToEditCommunity
     | SelectPlayer of selectedPlayer: string
     | SaveSettings
+    | SettingsSaved of Settings
     | CancelDialog
 
-type CmdMsg = FetchPlayersCmdMsg
+type CmdMsg =
+    | FetchPlayersCmdMsg
+    | SaveSettingsCmdMsg of Settings
 
 let performTransition (state: DialogState) (transition: Msg): DialogState * CmdMsg list =
     match (state, transition) with
     | (Closed, OpenDialog savedCommunityName) ->
         EditingCommunityName savedCommunityName, []
+
     | (EditingCommunityName _, SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
     | (EditingCommunityName communityName, StartFetchingPlayers) ->
         FetchingPlayers communityName, [FetchPlayersCmdMsg]
+    | (EditingCommunityName (_), CancelDialog) ->
+        Closed, []
+
     | (FetchingPlayers communityName, FetchingPlayersSuccess playerList) ->
         ChoosingPlayer (playerList, { CommunityName = communityName; PlayerName = "" }), []
 //    | (FetchingPlayers, FetchingPlayersError errorMessage) ->
 //        ErrorFetchingPlayers errorMessage
-    | (ChoosingPlayer (playerList, newSettings), SelectPlayer newSelectedPlayer) ->
-        ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer }), []
+
     | (ChoosingPlayer (_, newSettings), BackToEditCommunity) ->
         EditingCommunityName (newSettings.CommunityName), []
-    | (EditingCommunityName (_), CancelDialog) ->
-        Closed, []
+    | (ChoosingPlayer (playerList, newSettings), SelectPlayer newSelectedPlayer) ->
+        ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer }), []
     | (ChoosingPlayer (_, _), CancelDialog) ->
         Closed, []
-    | (ChoosingPlayer (_, _), SaveSettings) ->
-        Closed, [] // TODO: SaveSettings Cmd
+    | (ChoosingPlayer (_, settingsUnderEdit), SaveSettings) ->
+        Closed, [SaveSettingsCmdMsg settingsUnderEdit]
+
     | (currentState, _disallowedTransition) -> currentState, []
 
 let initModel =
-    { Settings = { CommunityName = "testcommunity"; PlayerName = "testplayer" }
-      DialogState = Closed }
+    let savedSettings = ApplicationSettings.getApplicaitonSettings()
+    let communityName = savedSettings.CommunityName |> Option.defaultValue ""
+    let playerName = savedSettings.PlayerName |> Option.defaultValue ""
+    { Settings = { CommunityName = communityName; PlayerName = playerName }; DialogState = Closed }
 
 let fetchPlayersCmd () =
     async {
@@ -62,13 +72,26 @@ let fetchPlayersCmd () =
     }
     |> Cmd.ofAsyncMsg
 
+let saveSettingsCmd (settings: Settings) =
+    async {
+        do! ApplicationSettings.saveApplicationSettings settings.CommunityName settings.PlayerName |> Async.AwaitTask
+        return SettingsSaved settings
+    }
+    |> Cmd.ofAsyncMsg
+
 let mapCommands =
     function
     | FetchPlayersCmdMsg -> fetchPlayersCmd()
+    | SaveSettingsCmdMsg settings -> saveSettingsCmd settings
 
 let update model msg: Model * CmdMsg list =
     let newDialogState, cmdMsgList = performTransition model.DialogState msg
-    { model with DialogState = newDialogState }, cmdMsgList
+    let newModel =
+        match msg with
+        | SettingsSaved newSettings -> { model with Settings = newSettings }
+        | _ -> model
+
+    { newModel with DialogState = newDialogState }, cmdMsgList
 
 let dialogIsOpen =
     function
@@ -104,7 +127,11 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
          margin = Thickness(10.0),
          children = [
              View.Label(text = "Step 1: Enter the community name")
-             View.Entry(text = communityName) // TODO: , keyboard = Entry.KeyboardProperty())
+             View.Entry(
+                text = communityName,
+                keyboard = Keyboard.Plain,
+                textChanged = (fun args -> dispatch (SetCommunityName args.NewTextValue))
+             )
              View.Label(text = "The community name is the last part of your Relogify URL: ")
              View.Label(text = "TODO: Formatted text")
              View.Grid(children = [
