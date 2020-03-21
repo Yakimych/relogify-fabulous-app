@@ -151,13 +151,12 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
          ]
      )
 
-let getPlayerByMaybeIndex (maybeIndex: int option) (players: string list) =
-    maybeIndex
-    |> Option.bind (fun index -> players |> List.tryItem(index))
-    |> Option.defaultValue ""
-
 let playerInput (players: string list) dispatch =
-    // TODO: Grid with ListView taking up the remaining space in the middle
+    let getPlayerByMaybeIndex (maybeIndex: int option) (players: string list) =
+        maybeIndex
+        |> Option.bind (fun index -> players |> List.tryItem(index))
+        |> Option.defaultValue ""
+
     View.StackLayout(
         margin = Thickness(10.0),
         orientation = StackOrientation.Vertical,
@@ -170,27 +169,6 @@ let playerInput (players: string list) dispatch =
                 itemSelected = (fun maybeIndex -> dispatch <| SelectPlayer (players |> getPlayerByMaybeIndex maybeIndex))
             )
 
-            View.Grid(
-                coldefs = [ Star; Star ],
-                children = [
-                    View.Button(
-                        text = "Back",
-                        backgroundColor = Color.Red,
-                        width = 50.0,
-                        height = 50.0,
-                        command = (fun _ -> dispatch BackToEditCommunity)
-                    ).Column(0)
-
-                    // TODO: Disable button unless player is selected
-                    View.Button(
-                        text = "Save",
-                        backgroundColor = Color.LightGreen,
-                        width = 50.0,
-                        height = 50.0,
-                        command = (fun _ -> dispatch SaveSettings)
-                    ).Column(1)
-                ]
-            )
         ]
     )
 
@@ -229,22 +207,43 @@ let dialogBody (model: Model) dispatch =
                     View.Grid(
                          margin = Thickness(10.0),
                          verticalOptions = LayoutOptions.FillAndExpand,
-                         rowdefs = [ Star; Auto ],
+                         rowdefs = [ Star; Absolute 50.0; Auto ],
                          children = [
-                             yield
+                             yield!
                                  match model.DialogState with
 //                                 | Closed _ -> failwith "TODO: Should never happen"
-                                 | Closed _ -> communityInput "" false dispatch // TODO: Remove?
-                                 | EditingCommunityName communityName -> (communityInput communityName false dispatch).Row(0)
-                                 | FetchingPlayers communityName -> (communityInput communityName true dispatch).Row(0)
-                                 | ChoosingPlayer (players, newSettings) -> (playerInput players dispatch).Row(0)
+                                 | Closed _ -> [communityInput "" false dispatch] // TODO: Remove?
+                                 | EditingCommunityName communityName -> [(communityInput communityName false dispatch).Row(0)]
+                                 | FetchingPlayers communityName -> [(communityInput communityName true dispatch).Row(0)]
+                                 | ChoosingPlayer (players, newSettings) ->
+                                     [
+                                         (playerInput players dispatch).Row(0)
+
+                                         View.Grid(
+                                             coldefs = [ Star; Star ],
+                                             children = [
+                                                 View.Button(
+                                                     text = "Back",
+                                                     backgroundColor = Color.Red,
+                                                     command = (fun _ -> dispatch BackToEditCommunity)
+                                                 ).Column(0)
+
+                                                 View.Button(
+                                                     text = "Save",
+                                                     backgroundColor = Color.LightGreen,
+                                                     command = (fun _ -> dispatch SaveSettings),
+                                                     commandCanExecute = (not <| String.IsNullOrEmpty(newSettings.PlayerName))
+                                                 ).Column(1)
+                                             ]
+                                         ).Row(1)
+                                     ]
 
                              yield View.Button(
                                      text = "Cancel",
                                      isVisible = canCancelDialog model,
                                      backgroundColor = Color.LightGray,
                                      command = (fun _ -> dispatch CancelDialog)
-                                 ).Row(1)
+                                 ).Row(2)
                          ]
                      )
                 ]
