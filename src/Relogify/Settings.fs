@@ -55,6 +55,8 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
     | (FetchingPlayers communityName, FetchingPlayersError errorMessage) ->
         FailedFetchingPlayers (communityName, errorMessage), []
 
+    | (FailedFetchingPlayers (_, _), SetCommunityName newCommunityName) ->
+        EditingCommunityName newCommunityName, []
     | (FailedFetchingPlayers (communityName, _), StartFetchingPlayers) ->
         FetchingPlayers communityName, [FetchPlayersCmdMsg]
     | (FailedFetchingPlayers (_, _), CancelDialog) ->
@@ -76,11 +78,15 @@ let initModel (settings: ApplicationSettings) =
     let playerName = settings.PlayerName |> Option.defaultValue ""
     { Settings = { CommunityName = communityName; PlayerName = playerName }; DialogState = Closed }
 
+let rand = Random()
 let fetchPlayersCmd () =
     async {
         do! Async.Sleep 200
-        return FetchingPlayersError "Failed to fetch, please check your internet connection and try again"
-//        return FetchingPlayersSuccess ([1 .. 20] |> List.map (sprintf "player%d"))
+
+        if rand.Next(2) = 0 then
+            return FetchingPlayersError "Failed to fetch, please check your internet connection and try again"
+        else
+            return FetchingPlayersSuccess ([1 .. 20] |> List.map (sprintf "player%d"))
     }
     |> Cmd.ofAsyncMsg
 
@@ -129,7 +135,7 @@ let canCancelDialog (model: Model) =
     | Closed _ -> false
     | _ -> not <| String.IsNullOrWhiteSpace(model.Settings.CommunityName)
 
-let communityInput (communityName: string) (isFetchingPlayers: bool) (errorMessage: string) dispatch =
+let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
      View.StackLayout(
          margin = Thickness(10.0),
          children = [
@@ -155,7 +161,6 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) (errorMessa
                     isRunning = isFetchingPlayers
                  )
              ])
-             View.Label(text = errorMessage) // TODO: Move this out of here
          ]
      )
 
@@ -220,10 +225,18 @@ let dialogBody (model: Model) dispatch =
                              yield!
                                  match model.DialogState with
 //                                 | Closed _ -> failwith "TODO: Should never happen"
-                                 | Closed _ -> [communityInput "" false "" dispatch] // TODO: Remove?
-                                 | EditingCommunityName communityName -> [(communityInput communityName false "" dispatch).Row(0)]
-                                 | FetchingPlayers communityName -> [(communityInput communityName true "" dispatch).Row(0)]
-                                 | FailedFetchingPlayers (communityName, errorMessage) -> [ (communityInput communityName false errorMessage dispatch).Row(0) ] // TODO: Move the errorMessage out of the communityInput
+                                 | Closed _ -> [communityInput "" false dispatch] // TODO: Remove?
+                                 | EditingCommunityName communityName -> [(communityInput communityName false dispatch).Row(0)]
+                                 | FetchingPlayers communityName -> [(communityInput communityName true dispatch).Row(0)]
+                                 | FailedFetchingPlayers (communityName, errorMessage) ->
+                                     [
+                                         View.StackLayout(
+                                             children = [
+                                                 communityInput communityName false dispatch
+                                                 View.Label(text = errorMessage, textColor = Color.Red)
+                                             ]
+                                         ).Row(0)
+                                     ]
                                  | ChoosingPlayer (players, newSettings) ->
                                      [
                                          (playerInput players dispatch).Row(0)
