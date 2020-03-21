@@ -15,7 +15,7 @@ let getStringValueOrNone key =
     let found, property = Application.Current.Properties.TryGetValue(key)
     if found then Some(property.ToString()) else None
 
-let getApplicaitonSettings () =
+let getApplicationSettings (): ApplicationSettings =
     { CommunityName = getStringValueOrNone CommunityNameStorageKey
       PlayerName = getStringValueOrNone PlayerNameStorageKey }
 

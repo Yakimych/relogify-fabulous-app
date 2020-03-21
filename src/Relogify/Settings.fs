@@ -3,6 +3,7 @@ module Relogify.Settings
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify
+open Relogify.ApplicationSettings
 open Xamarin.Forms
 open System
 
@@ -59,10 +60,9 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
 
     | (currentState, _disallowedTransition) -> currentState, []
 
-let initModel =
-    let savedSettings = ApplicationSettings.getApplicaitonSettings()
-    let communityName = savedSettings.CommunityName |> Option.defaultValue ""
-    let playerName = savedSettings.PlayerName |> Option.defaultValue ""
+let initModel (settings: ApplicationSettings) =
+    let communityName = settings.CommunityName |> Option.defaultValue ""
+    let playerName = settings.PlayerName |> Option.defaultValue ""
     { Settings = { CommunityName = communityName; PlayerName = playerName }; DialogState = Closed }
 
 let fetchPlayersCmd () =
