@@ -68,7 +68,7 @@ let initModel (settings: ApplicationSettings) =
 let fetchPlayersCmd () =
     async {
         do! Async.Sleep 200
-        return FetchingPlayersSuccess ["player1"; "player2"]
+        return FetchingPlayersSuccess ([1 .. 20] |> List.map (sprintf "player%d"))
     }
     |> Cmd.ofAsyncMsg
 
@@ -151,19 +151,25 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
          ]
      )
 
-let playerInput (dialogState: DialogState) dispatch =
+let getPlayerByMaybeIndex (maybeIndex: int option) (players: string list) =
+    maybeIndex
+    |> Option.bind (fun index -> players |> List.tryItem(index))
+    |> Option.defaultValue ""
+
+let playerInput (players: string list) dispatch =
+    // TODO: Grid with ListView taking up the remaining space in the middle
     View.StackLayout(
         margin = Thickness(10.0),
         orientation = StackOrientation.Vertical,
         children = [
-            View.Label(text = "Step 2: Select yur player in ")
+            View.Label(text = "Step 2: Select your player in ")
             View.Label(text = "TODO: Formatted text")
 
-            View.Picker(
-                title = "Select Player",
-                items = ["asd"],
-                selectedIndex = 0 // TODO: "Bind" to the model
+            View.ListView(
+                items = (players |> List.map (fun player -> View.TextCell player)),
+                itemSelected = (fun maybeIndex -> dispatch <| SelectPlayer (players |> getPlayerByMaybeIndex maybeIndex))
             )
+
             View.Grid(
                 coldefs = [ Star; Star ],
                 children = [
@@ -171,11 +177,16 @@ let playerInput (dialogState: DialogState) dispatch =
                         text = "Back",
                         backgroundColor = Color.Red,
                         width = 50.0,
+                        height = 50.0,
                         command = (fun _ -> dispatch BackToEditCommunity)
                     ).Column(0)
+
+                    // TODO: Disable button unless player is selected
                     View.Button(
                         text = "Save",
                         backgroundColor = Color.LightGreen,
+                        width = 50.0,
+                        height = 50.0,
                         command = (fun _ -> dispatch SaveSettings)
                     ).Column(1)
                 ]
@@ -226,7 +237,7 @@ let dialogBody (model: Model) dispatch =
                                  | Closed _ -> communityInput "" false dispatch // TODO: Remove?
                                  | EditingCommunityName communityName -> (communityInput communityName false dispatch).Row(0)
                                  | FetchingPlayers communityName -> (communityInput communityName true dispatch).Row(0)
-                                 | ChoosingPlayer (players, newSettings) -> (playerInput model.DialogState dispatch).Row(0)
+                                 | ChoosingPlayer (players, newSettings) -> (playerInput players dispatch).Row(0)
 
                              yield View.Button(
                                      text = "Cancel",
