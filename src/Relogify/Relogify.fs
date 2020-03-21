@@ -65,11 +65,12 @@ module App =
         | ShowTimerCmdMsg -> showTimer ()
 
     let initModel () =
+        let applicationSettings = ApplicationSettings.getApplicationSettings ()
         { SomeFlag = false
           OpponentListModel= OpponentList.initModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
-          SettingsModel = Settings.initModel }
+          SettingsModel = Settings.initModel applicationSettings }
 
     let init () =
         Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
