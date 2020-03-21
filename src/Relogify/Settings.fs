@@ -25,35 +25,35 @@ type Msg =
     | SaveSettings
     | CancelDialog
 
-let performTransition (state: DialogState) (transition: Msg): DialogState =
+type CmdMsg = FetchPlayersCmdMsg
+
+let performTransition (state: DialogState) (transition: Msg): DialogState * CmdMsg list =
     match (state, transition) with
     | (Closed, OpenDialog savedCommunityName) ->
-        EditingCommunityName savedCommunityName
+        EditingCommunityName savedCommunityName, []
     | (EditingCommunityName _, SetCommunityName newCommunityName) ->
-        EditingCommunityName newCommunityName
+        EditingCommunityName newCommunityName, []
     | (EditingCommunityName communityName, StartFetchingPlayers) ->
-        FetchingPlayers communityName // TODO: FetchPlayers Cmd
+        FetchingPlayers communityName, [FetchPlayersCmdMsg]
     | (FetchingPlayers communityName, FetchingPlayersSuccess playerList) ->
-        ChoosingPlayer (playerList, { CommunityName = communityName; PlayerName = "" })
+        ChoosingPlayer (playerList, { CommunityName = communityName; PlayerName = "" }), []
 //    | (FetchingPlayers, FetchingPlayersError errorMessage) ->
 //        ErrorFetchingPlayers errorMessage
     | (ChoosingPlayer (playerList, newSettings), SelectPlayer newSelectedPlayer) ->
-        ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer })
+        ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer }), []
     | (ChoosingPlayer (_, newSettings), BackToEditCommunity) ->
-        EditingCommunityName (newSettings.CommunityName)
+        EditingCommunityName (newSettings.CommunityName), []
     | (EditingCommunityName (_), CancelDialog) ->
-        Closed
+        Closed, []
     | (ChoosingPlayer (_, _), CancelDialog) ->
-        Closed
+        Closed, []
     | (ChoosingPlayer (_, _), SaveSettings) ->
-        Closed // TODO: SaveSettings Cmd
-    | (currentState, _disallowedTransition) -> currentState
+        Closed, [] // TODO: SaveSettings Cmd
+    | (currentState, _disallowedTransition) -> currentState, []
 
 let initModel =
     { Settings = { CommunityName = "testcommunity"; PlayerName = "testplayer" }
       DialogState = Closed }
-
-type CmdMsg = FetchPlayersCmdMsg
 
 let fetchPlayersCmd () =
     async {
@@ -67,8 +67,8 @@ let mapCommands =
     | FetchPlayersCmdMsg -> fetchPlayersCmd()
 
 let update model msg: Model * CmdMsg list =
-    let newDialogState = performTransition model.DialogState msg
-    { model with DialogState = newDialogState }, []
+    let newDialogState, cmdMsgList = performTransition model.DialogState msg
+    { model with DialogState = newDialogState }, cmdMsgList
 
 let dialogIsOpen =
     function
