@@ -72,7 +72,7 @@ module App =
         Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
 
         let applicationSettings = ApplicationSettings.getApplicationSettings ()
-        let opponentListModel, opponentListCmdMsgs = OpponentList.initModel ()
+        let opponentListModel, opponentListCmdMsgs = OpponentList.initModel applicationSettings
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
         { SomeFlag = false
@@ -87,21 +87,26 @@ module App =
         match msg with
         | OpponentListMsg opponentListMsg ->
             match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
-            | None, _ | _, None -> model, []
-            | (Some playerName, Some communityName) ->
+            | (Some _, Some communityName) ->
                 let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel communityName opponentListMsg
                 { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
+            | _, _ -> model, []
         | AddResultMsg addResultMsg ->
             let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg
             { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
+            let appCmdMsgsFromSettings = settingsCmdMsgs |> List.map SettingsCmdMsg
 
             match settingsMsg with
             | Settings.SettingsSaved newSettings ->
-                { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, settingsCmdMsgs |> List.map SettingsCmdMsg
-            | _ -> updatedModel, settingsCmdMsgs |> List.map SettingsCmdMsg
+                // Refetch the players
+                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg newSettings.CommunityName |> OpponentListCmdMsg
+                let newCmdMsgs = appCmdMsgsFromSettings @ [opponentListCmdMsg]
+
+                { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
+            | _ -> updatedModel, appCmdMsgsFromSettings
         | ShowTimer -> model, [ShowTimerCmdMsg]
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
