@@ -24,7 +24,6 @@ module App =
         | OpponentListMsg of OpponentList.Msg
         | AddResultMsg of AddResult.Msg
         | SettingsMsg of Settings.Msg
-//        | SetSelectedTabMsg of tabIndex: int
         | ShowTimer
 
     type CmdMsg =
@@ -32,7 +31,6 @@ module App =
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
         | ShowTimerCmdMsg
-//        | SetSelectedTabCmdMsg of tabIndex: int
 
     let shellRef = ViewRef<Shell>()
 
@@ -69,7 +67,6 @@ module App =
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
         | ShowTimerCmdMsg -> showTimer ()
-//        | SetSelectedTabCmdMsg tabIndex -> setTabBarItem tabIndex
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -106,7 +103,6 @@ module App =
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings; SettingsModel = updatedSettingsModel }, settingsCmdMsgs |> List.map SettingsCmdMsg
             | _ -> updatedModel, settingsCmdMsgs |> List.map SettingsCmdMsg
         | ShowTimer -> model, [ShowTimerCmdMsg]
-//        | SetSelectedTabMsg tabIndex -> model, [SetSelectedTabCmdMsg tabIndex]
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
 
