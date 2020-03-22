@@ -13,6 +13,7 @@ open Xamarin.Forms
 module App =
     type Model =
       { SomeFlag : bool
+        SelectedTabIndex : int
         OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
         AddResultModel : AddResult.Model
@@ -23,6 +24,7 @@ module App =
         | OpponentListMsg of OpponentList.Msg
         | AddResultMsg of AddResult.Msg
         | SettingsMsg of Settings.Msg
+//        | SetSelectedTabMsg of tabIndex: int
         | ShowTimer
 
     type CmdMsg =
@@ -30,6 +32,7 @@ module App =
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
         | ShowTimerCmdMsg
+//        | SetSelectedTabCmdMsg of tabIndex: int
 
     let shellRef = ViewRef<Shell>()
 
@@ -66,10 +69,15 @@ module App =
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
         | ShowTimerCmdMsg -> showTimer ()
+//        | SetSelectedTabCmdMsg tabIndex -> setTabBarItem tabIndex
+
+    let selectOpponentTabIndex = 0
+    let settingsTabIndex = 1
 
     let initModel () =
         let applicationSettings = ApplicationSettings.getApplicationSettings ()
         { SomeFlag = false
+          SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel= OpponentList.initModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
@@ -80,7 +88,7 @@ module App =
         Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
         initModel (), []
 
-    let update msg model =
+    let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
             let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel opponentListMsg
@@ -98,13 +106,9 @@ module App =
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings; SettingsModel = updatedSettingsModel }, settingsCmdMsgs |> List.map SettingsCmdMsg
             | _ -> updatedModel, settingsCmdMsgs |> List.map SettingsCmdMsg
         | ShowTimer -> model, [ShowTimerCmdMsg]
+//        | SetSelectedTabMsg tabIndex -> model, [SetSelectedTabCmdMsg tabIndex]
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
-
-    let hasApplicationSettings (model: Model) =
-        match model.ApplicationSettings.CommunityName, model.ApplicationSettings.PlayerName with
-        | Some _, Some _ -> true
-        | _ -> false
 
     let view (model: Model) dispatch =
         View.Shell(
@@ -120,22 +124,23 @@ module App =
             shellTabBarTitleColor = Color.White,
             items = [
                 View.TabBar(
+                    created = (fun tabBar -> tabBar.CurrentItem <- tabBar.Items.[model.SelectedTabIndex]),
                     items = [
+                        View.Tab(
+                            title = "Select Opponent",
+                            icon = Image.Path "tab_about.png",
+                            isEnabled = (model.ApplicationSettings |> areSet),
+                            items = [
+                                View.ShellContent(
+                                    content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
+                                )
+                            ])
                         View.Tab(
                             title = "Settings",
                             icon = Image.Path "tab_settings.png",
                             items = [
                                 View.ShellContent(
                                     content = Settings.view model.SettingsModel (Msg.SettingsMsg >> dispatch)
-                                )
-                            ])
-                        View.Tab(
-                            title = "Select Opponent",
-                            icon = Image.Path "tab_about.png",
-                            isEnabled = hasApplicationSettings model,
-                            items = [
-                                View.ShellContent(
-                                    content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
                                 )
                             ])
                         View.Tab(

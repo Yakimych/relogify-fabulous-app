@@ -26,3 +26,8 @@ let saveApplicationSettings (communityName: string) (playerName: string) =
         Application.Current.Properties.[PlayerNameStorageKey] <- playerName
 
     Application.Current.SavePropertiesAsync()
+
+let areSet (applicationSettings: ApplicationSettings) =
+    match applicationSettings.CommunityName, applicationSettings.PlayerName with
+    | Some _, Some _ -> true
+    | _ -> false
