@@ -11,11 +11,11 @@ type FetchPlayersState =
     | Fetching of communityName: string
     | Fetched of playerNames: string list
 
+// TODO: Do we need a record here?
 type Model =
      { FetchPlayersState: FetchPlayersState }
 
 type Msg =
-    | FetchPlayersClicked
     | PlayersFetched of string list
     | FetchPlayerError of string
 
@@ -43,9 +43,8 @@ let mapCommands =
     function
     | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
 
-let update model (communityName: string) msg: Model * CmdMsg list =
+let update model msg: Model * CmdMsg list =
     match msg with
-    | FetchPlayersClicked -> model, [FetchPlayersCmdMsg communityName]
     | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, []
     | FetchPlayerError errorMessage -> model, [] // TODO: Handle errors correctly
 
