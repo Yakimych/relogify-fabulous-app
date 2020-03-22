@@ -45,9 +45,7 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
 
     | (EditingCommunityName _, SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
-    | (EditingCommunityName emptyCommunityName, StartFetchingPlayers) when emptyCommunityName |> isEmpty ->
-        state, []
-    | (EditingCommunityName communityName, StartFetchingPlayers) ->
+    | (EditingCommunityName communityName, StartFetchingPlayers) when communityName |> isNotEmpty ->
         FetchingPlayers communityName, [FetchPlayersCmdMsg]
     | (EditingCommunityName (_), CancelDialog) ->
         Closed, []
