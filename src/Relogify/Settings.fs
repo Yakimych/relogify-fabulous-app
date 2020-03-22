@@ -16,7 +16,7 @@ type DialogState =
     | FailedFetchingPlayers of communityName : string * errorMessage: string
     | ChoosingPlayer of players: string list * settingsUnderEdit: Settings
 
-type Model = { Settings: Settings; DialogState: DialogState }
+type Model = { DialogState: DialogState }
 
 type Msg =
     | OpenDialog of savedCommunityName: string
@@ -45,6 +45,8 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
 
     | (EditingCommunityName _, SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
+    | (EditingCommunityName emptyCommunityName, StartFetchingPlayers) when emptyCommunityName |> isEmpty ->
+        state, []
     | (EditingCommunityName communityName, StartFetchingPlayers) ->
         FetchingPlayers communityName, [FetchPlayersCmdMsg]
     | (EditingCommunityName (_), CancelDialog) ->
@@ -73,11 +75,11 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
 
     | (currentState, _disallowedTransition) -> currentState, []
 
-let initModel (applicationSettings: ApplicationSettings) =
-    let communityName = applicationSettings.CommunityName |> Option.defaultValue ""
-    let playerName = applicationSettings.PlayerName |> Option.defaultValue ""
-    { Settings = { CommunityName = communityName; PlayerName = playerName }
-      DialogState = if applicationSettings |> areSet then Closed else EditingCommunityName communityName }
+let initModel (communityNameHasBeenSaved: bool) =
+    if communityNameHasBeenSaved then
+        { DialogState = Closed }
+    else
+        { DialogState = EditingCommunityName "" }
 
 let rand = Random()
 let fetchPlayersCmd () =
@@ -129,13 +131,6 @@ let dialogBackdrop (isVisible: bool): ViewElement =
         ]
     )
 
-let canTriggerLoadPlayers communityName = not <| String.IsNullOrEmpty(communityName)
-
-let canCancelDialog (model: Model) =
-    match model.DialogState with
-    | Closed _ -> false
-    | _ -> not <| String.IsNullOrWhiteSpace(model.Settings.CommunityName)
-
 let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
      View.StackLayout(
          margin = Thickness(10.0),
@@ -151,9 +146,9 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
              View.Grid(children = [
                  View.Button(
                      text = "Fetch Players",
-                     isEnabled = canTriggerLoadPlayers communityName,
                      backgroundColor = Color.LightGreen,
-                     command = (fun _ -> dispatch StartFetchingPlayers)
+                     command = (fun _ -> dispatch StartFetchingPlayers),
+                     commandCanExecute = isNotEmpty communityName
                  )
                  View.ActivityIndicator(
                     horizontalOptions = LayoutOptions.End,
@@ -187,7 +182,7 @@ let playerInput (players: string list) dispatch =
     )
 
 // TODO: Break up the model into parts and only pass the dialogModel here
-let dialogBody (model: Model) dispatch =
+let dialogBody (model: Model) (savedCommunityName: string) dispatch =
     View.StackLayout(
         isVisible = dialogIsOpen model.DialogState,
         margin = Thickness(30.0, 50.0, 30.0, 50.0),
@@ -263,7 +258,7 @@ let dialogBody (model: Model) dispatch =
 
                              yield View.Button(
                                      text = "Cancel",
-                                     isVisible = canCancelDialog model,
+                                     isVisible = isNotEmpty savedCommunityName,
                                      backgroundColor = Color.LightGray,
                                      command = (fun _ -> dispatch CancelDialog)
                                  ).Row(2)
@@ -274,7 +269,7 @@ let dialogBody (model: Model) dispatch =
         ]
     )
 
-let view (model: Model) dispatch =
+let view (model: Model) (savedPlayerName: string) (savedCommunityName: string) dispatch =
     View.ContentPage(
         title = "Settings",
         content =
@@ -287,20 +282,20 @@ let view (model: Model) dispatch =
                          children =
                              [ View.Label(text = "Community: ", fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(0)
-                               View.Label(text = model.Settings.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = savedCommunityName, fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(1)
                                View.Label(text = "Player: ", fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(0)
-                               View.Label(text = model.Settings.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = savedPlayerName, fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
                                View.Button(text = "Edit", backgroundColor = Color.Orange, textColor = Color.Black,
                                            fontSize = FontSize.Named(NamedSize.Large),
                                            margin = Thickness(15.0), height = 60.0, cornerRadius = 10, borderWidth = 2.0,
-                                           command = (fun _ -> dispatch (OpenDialog model.Settings.CommunityName))).Row(2).Column(0)
+                                           command = (fun _ -> dispatch (OpenDialog savedCommunityName))).Row(2).Column(0)
                                    .ColumnSpan(2) ])
 
                     yield dialogBackdrop (model.DialogState |> dialogIsOpen)
-                    yield dialogBody model dispatch
+                    yield dialogBody model savedCommunityName dispatch
                 ]
             )
     )
