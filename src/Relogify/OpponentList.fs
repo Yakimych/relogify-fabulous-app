@@ -2,7 +2,6 @@ module Relogify.OpponentList
 
 open Fabulous
 open Fabulous.XamarinForms
-open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
 open Xamarin.Forms
 open Relogify.Graphql
@@ -22,8 +21,13 @@ type Msg =
 
 type CmdMsg = FetchPlayersCmdMsg of communityName: string
 
-let initModel (): Model * CmdMsg list =
-    { FetchPlayersState = NotAsked }, []
+let initModel (applicationSettings: ApplicationSettings): Model * CmdMsg list =
+    let cmdMsgs =
+        match applicationSettings.PlayerName, applicationSettings.CommunityName with
+        | Some(_), Some(communityName) -> [FetchPlayersCmdMsg communityName]
+        | _ -> []
+
+    { FetchPlayersState = NotAsked }, cmdMsgs
 
 let fetchPlayersCmd (communityName: string) =
     async {
@@ -45,6 +49,19 @@ let update model (communityName: string) msg: Model * CmdMsg list =
     | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, []
     | FetchPlayerError errorMessage -> model, [] // TODO: Handle errors correctly
 
+let getBodyElements (model: Model): ViewElement list =
+    match model.FetchPlayersState with
+    | NotAsked -> [View.Label(text = "Not asked")]
+    | Fetching communityName -> [View.Label(sprintf "Fetching players in community: %s" communityName)]
+    | Fetched players ->
+        players
+         |> List.map (fun playerName ->
+                        View.Label(
+                            text = playerName,
+                            horizontalOptions = LayoutOptions.Center,
+                            width = 200.0,
+                            horizontalTextAlignment = TextAlignment.Center))
+
 let view (model: Model) (playerName: string) dispatch =
     View.ContentPage(
         title = "Select Opponent",
@@ -61,6 +78,8 @@ let view (model: Model) (playerName: string) dispatch =
                                 width = 200.0,
                                 horizontalTextAlignment = TextAlignment.Center)
 
+                             yield! getBodyElements model
+
 //                                 yield! model.OpponentNames
 //                                        |> Array.map (fun opponentName ->
 //                                            View.Label(
@@ -69,12 +88,6 @@ let view (model: Model) (playerName: string) dispatch =
 //                                                   width = 200.0,
 //                                                   horizontalTextAlignment = TextAlignment.Center)
 //                                            )
-
-                             yield View.Button(
-                                text = "Fetch Players",
-                                horizontalOptions = LayoutOptions.Center,
-                                width = 200.0,
-                                command = (fun () -> dispatch FetchPlayersClicked))
                          ])
                 ]
             )
