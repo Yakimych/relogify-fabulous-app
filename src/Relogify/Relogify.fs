@@ -1,11 +1,7 @@
-﻿// Copyright 2018-2019 Fabulous contributors. See LICENSE.md for license.
-namespace Relogify
+﻿namespace Relogify
 
-open System.Diagnostics
-open System
 open Fabulous
 open Fabulous.XamarinForms
-open Fabulous.XamarinForms.LiveUpdate
 open Relogify.ApplicationSettings
 open Routes
 open Xamarin.Forms
@@ -179,7 +175,6 @@ module App =
                     ])
             ])
 
-    // Note, this declaration is needed if you enable LiveUpdate
     let program = Program.mkProgramWithCmdMsg init update view mapCommands
 
 type App () as app =
@@ -192,15 +187,8 @@ type App () as app =
 #endif
         |> XamarinFormsProgram.run app
 
-#if DEBUG
-    // Uncomment this line to enable live update in debug mode.
-    // See https://fsprojects.github.io/Fabulous/Fabulous.XamarinForms/tools.html#live-update for further  instructions.
-    //
-    //do runner.EnableLiveUpdate()
-#endif
-
-    // Uncomment this code to save the application state to app.Properties using Newtonsoft.Json
-    // See https://fsprojects.github.io/Fabulous/Fabulous.XamarinForms/models.html#saving-application-state for further  instructions.
+// Uncomment this code to save the application state to app.Properties using Newtonsoft.Json
+// See https://fsprojects.github.io/Fabulous/Fabulous.XamarinForms/models.html#saving-application-state for further  instructions.
 #if APPSAVE
     let modelId = "model"
     override __.OnSleep() =
