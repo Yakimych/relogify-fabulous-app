@@ -73,10 +73,11 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
 
     | (currentState, _disallowedTransition) -> currentState, []
 
-let initModel (settings: ApplicationSettings) =
-    let communityName = settings.CommunityName |> Option.defaultValue ""
-    let playerName = settings.PlayerName |> Option.defaultValue ""
-    { Settings = { CommunityName = communityName; PlayerName = playerName }; DialogState = Closed }
+let initModel (applicationSettings: ApplicationSettings) =
+    let communityName = applicationSettings.CommunityName |> Option.defaultValue ""
+    let playerName = applicationSettings.PlayerName |> Option.defaultValue ""
+    { Settings = { CommunityName = communityName; PlayerName = playerName }
+      DialogState = if applicationSettings |> areSet then Closed else EditingCommunityName communityName }
 
 let rand = Random()
 let fetchPlayersCmd () =
