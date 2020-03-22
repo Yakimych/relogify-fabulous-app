@@ -2,45 +2,50 @@ module Relogify.OpponentList
 
 open Fabulous
 open Fabulous.XamarinForms
+open Fabulous.XamarinForms
+open Relogify.ApplicationSettings
 open Xamarin.Forms
 open Relogify.Graphql
 
-type Model =
-     { CurrentPlayerName: string
-       OpponentNames: string array }
+type FetchPlayersState =
+    | NotAsked
+    | Fetching of communityName: string
+    | Fetched of playerNames: string list
 
-let initModel =
-    { CurrentPlayerName = "TestPlayer"
-      OpponentNames = [| "PlaceHolder" |] }
+type Model =
+     { FetchPlayersState: FetchPlayersState }
 
 type Msg =
     | FetchPlayersClicked
-    | PlayersFetched of string array
+    | PlayersFetched of string list
     | FetchPlayerError of string
 
-type CmdMsg = FetchPlayersCmdMsg
+type CmdMsg = FetchPlayersCmdMsg of communityName: string
 
-let fetchPlayersCmd () =
+let initModel (): Model * CmdMsg list =
+    { FetchPlayersState = NotAsked }, []
+
+let fetchPlayersCmd (communityName: string) =
     async {
-        let! result = getPlayersOperation.AsyncRun(runtimeContext, "test")
+        let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
         return
             match result.Data with
-            | Some data -> data.Players |> Array.map (fun p -> p.Name) |> PlayersFetched
+            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> PlayersFetched
             | None -> FetchPlayerError "Error fetching players" // TODO: Handle errors correctly
     }
     |> Cmd.ofAsyncMsg
 
 let mapCommands =
     function
-    | FetchPlayersCmdMsg -> fetchPlayersCmd()
+    | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
 
-let update model msg: Model * CmdMsg list =
+let update model (communityName: string) msg: Model * CmdMsg list =
     match msg with
-    | FetchPlayersClicked -> model, [FetchPlayersCmdMsg]
-    | PlayersFetched players -> { model with OpponentNames = players }, []
+    | FetchPlayersClicked -> model, [FetchPlayersCmdMsg communityName]
+    | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, []
     | FetchPlayerError errorMessage -> model, [] // TODO: Handle errors correctly
 
-let view model dispatch =
+let view (model: Model) (playerName: string) dispatch =
     View.ContentPage(
         title = "Select Opponent",
         content = View.CollectionView(
@@ -51,19 +56,19 @@ let view model dispatch =
                      children =
                          [
                              yield View.Label(
-                                text = model.CurrentPlayerName,
+                                text = playerName,
                                 horizontalOptions = LayoutOptions.Center,
                                 width = 200.0,
                                 horizontalTextAlignment = TextAlignment.Center)
 
-                             yield! model.OpponentNames
-                                    |> Array.map (fun opponentName ->
-                                        View.Label(
-                                               text = opponentName,
-                                               horizontalOptions = LayoutOptions.Center,
-                                               width = 200.0,
-                                               horizontalTextAlignment = TextAlignment.Center)
-                                        )
+//                                 yield! model.OpponentNames
+//                                        |> Array.map (fun opponentName ->
+//                                            View.Label(
+//                                                   text = opponentName,
+//                                                   horizontalOptions = LayoutOptions.Center,
+//                                                   width = 200.0,
+//                                                   horizontalTextAlignment = TextAlignment.Center)
+//                                            )
 
                              yield View.Button(
                                 text = "Fetch Players",

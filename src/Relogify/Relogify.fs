@@ -71,25 +71,30 @@ module App =
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
 
-    let initModel () =
-        let applicationSettings = ApplicationSettings.getApplicationSettings ()
-        { SomeFlag = false
-          SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
-          OpponentListModel= OpponentList.initModel
-          AboutModel = About.initModel
-          AddResultModel = AddResult.initModel
-          ApplicationSettings = applicationSettings
-          SettingsModel = Settings.initModel applicationSettings }
 
     let init () =
         Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
-        initModel (), []
+
+        let applicationSettings = ApplicationSettings.getApplicationSettings ()
+        let opponentListModel, opponentListCmdMsgs = OpponentList.initModel ()
+        let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
+
+        { SomeFlag = false
+          SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
+          OpponentListModel = opponentListModel
+          AboutModel = About.initModel
+          AddResultModel = AddResult.initModel
+          ApplicationSettings = applicationSettings
+          SettingsModel = Settings.initModel applicationSettings }, cmdMsgs
 
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
-            let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel opponentListMsg
-            { model with OpponentListModel= opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
+            match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
+            | None, _ | _, None -> model, []
+            | (Some playerName, Some communityName) ->
+                let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel communityName opponentListMsg
+                { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
         | AddResultMsg addResultMsg ->
             let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg
             { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
@@ -127,9 +132,13 @@ module App =
                             icon = Image.Path "tab_about.png",
                             isEnabled = (model.ApplicationSettings |> areSet),
                             items = [
-                                View.ShellContent(
-                                    content = OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
-                                )
+                                model.ApplicationSettings.PlayerName
+                                    |> Option.map (fun playerName ->
+                                        View.ShellContent(
+                                            content = OpponentList.view model.OpponentListModel playerName (Msg.OpponentListMsg >> dispatch)
+                                        )
+                                    )
+                                    |> Option.defaultValue (View.ShellContent()) // TODO: Is there a better way?
                             ])
                         View.Tab(
                             title = "Settings",
