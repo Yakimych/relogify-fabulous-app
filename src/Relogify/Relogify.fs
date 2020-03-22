@@ -85,7 +85,7 @@ module App =
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
           ApplicationSettings = applicationSettings
-          SettingsModel = Settings.initModel applicationSettings }, cmdMsgs
+          SettingsModel = Settings.initModel applicationSettings.CommunityName.IsSome }, cmdMsgs
 
     let update msg (model: Model) =
         match msg with
@@ -104,8 +104,7 @@ module App =
 
             match settingsMsg with
             | Settings.SettingsSaved newSettings ->
-                let updatedSettingsModel = { settingsModel with Settings = newSettings }
-                { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings; SettingsModel = updatedSettingsModel }, settingsCmdMsgs |> List.map SettingsCmdMsg
+                { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, settingsCmdMsgs |> List.map SettingsCmdMsg
             | _ -> updatedModel, settingsCmdMsgs |> List.map SettingsCmdMsg
         | ShowTimer -> model, [ShowTimerCmdMsg]
 
@@ -145,7 +144,12 @@ module App =
                             icon = Image.Path "tab_settings.png",
                             items = [
                                 View.ShellContent(
-                                    content = Settings.view model.SettingsModel (Msg.SettingsMsg >> dispatch)
+                                    content =
+                                        Settings.view
+                                            model.SettingsModel
+                                            (model.ApplicationSettings.PlayerName |> Option.defaultValue "")
+                                            (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
+                                            (Msg.SettingsMsg >> dispatch)
                                 )
                             ])
                         View.Tab(
