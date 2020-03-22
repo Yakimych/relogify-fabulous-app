@@ -88,7 +88,7 @@ module App =
         | OpponentListMsg opponentListMsg ->
             match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
             | (Some _, Some communityName) ->
-                let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel communityName opponentListMsg
+                let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel opponentListMsg
                 { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
             | _, _ -> model, []
         | AddResultMsg addResultMsg ->
