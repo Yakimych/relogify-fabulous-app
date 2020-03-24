@@ -1,12 +1,11 @@
-//namespace Relogify
-
 module Relogify.Routes
 
+open System
 open Fabulous
 open Xamarin.Forms
 
 [<QueryProperty("Name", "name")>]
-type RoutingPage(view: unit -> ViewElement) =
+type RoutingPage(initView: string -> ViewElement) =
     inherit ContentPage()
 
     let mutable _name = ""
@@ -15,11 +14,11 @@ type RoutingPage(view: unit -> ViewElement) =
     member this.Name
         with get () = _name
         and set (value: string) =
-            _name <- value.Replace("%20", " ")
+            _name <- Uri.UnescapeDataString(value)
             this.Refresh()
 
     member this.Refresh() =
-        let viewElement = view()
+        let viewElement = initView _name
         match _prevViewElement with
         | None -> this.Content <- viewElement.Create() :?> View
         | Some prevViewElement -> viewElement.UpdateIncremental(prevViewElement, this.Content)

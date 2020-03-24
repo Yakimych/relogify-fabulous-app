@@ -30,11 +30,11 @@ module App =
 
     let shellRef = ViewRef<Shell>()
 
-    let navigateToPage (pageName: string) =
+    let navigateToPage (pageName: string) (opponentName: string) =
         match shellRef.TryValue with
         | None -> ()
         | Some shell ->
-            let route = ShellNavigationState.op_Implicit (sprintf "%s?name=whatever" pageName)
+            let route = ShellNavigationState.op_Implicit (sprintf "%s?name=%s" pageName opponentName)
             async {
                 do! shell.GoToAsync route |> Async.AwaitTask
             } |> Async.StartImmediate
@@ -62,7 +62,8 @@ module App =
         | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
-        | ShowTimerCmdMsg -> showTimer ()
+        | ShowTimerCmdMsg -> navigateToPage "TestRoute" "TestOpponent" // TODO: Parametrize
+//        | ShowTimerCmdMsg -> showTimer ()
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
