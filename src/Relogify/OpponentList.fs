@@ -3,7 +3,6 @@ module Relogify.OpponentList
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
-open Xamarin.Forms
 open Relogify.Graphql
 
 type FetchPlayersState =
@@ -48,46 +47,15 @@ let update model msg: Model * CmdMsg list =
     | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, []
     | FetchPlayerError errorMessage -> model, [] // TODO: Handle errors correctly
 
-let getBodyElements (model: Model): ViewElement list =
-    match model.FetchPlayersState with
-    | NotAsked -> [View.Label(text = "Not asked")]
-    | Fetching communityName -> [View.Label(sprintf "Fetching players in community: %s" communityName)]
-    | Fetched players ->
-        players
-         |> List.map (fun playerName ->
-                        View.Label(
-                            text = playerName,
-                            horizontalOptions = LayoutOptions.Center,
-                            width = 200.0,
-                            horizontalTextAlignment = TextAlignment.Center))
-
-let view (model: Model) (playerName: string) dispatch =
+let view (model: Model) (playerName: string) (communityName: string) dispatch =
     View.ContentPage(
-        title = "Select Opponent",
-        content = View.CollectionView(
-            items = [
-                View.StackLayout(
-                     padding = Thickness 20.0,
-                     verticalOptions = LayoutOptions.Center,
-                     children =
-                         [
-                             yield View.Label(
-                                text = playerName,
-                                horizontalOptions = LayoutOptions.Center,
-                                width = 200.0,
-                                horizontalTextAlignment = TextAlignment.Center)
-
-                             yield! getBodyElements model
-
-//                                 yield! model.OpponentNames
-//                                        |> Array.map (fun opponentName ->
-//                                            View.Label(
-//                                                   text = opponentName,
-//                                                   horizontalOptions = LayoutOptions.Center,
-//                                                   width = 200.0,
-//                                                   horizontalTextAlignment = TextAlignment.Center)
-//                                            )
-                         ])
-                ]
-            )
-        )
+        title = sprintf "%s: select opponent in %s" playerName communityName,
+        content =
+            match model.FetchPlayersState with
+            | NotAsked -> View.Label(text = "Not asked")
+            | Fetching communityName -> View.Label(sprintf "Fetching players in community: %s" communityName)
+            | Fetched players ->
+                View.ListView(
+                    items = (players |> List.map (fun playerName -> View.TextCell playerName))
+                )
+    )

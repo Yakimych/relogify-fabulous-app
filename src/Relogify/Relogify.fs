@@ -131,15 +131,16 @@ module App =
                             title = "Select Opponent",
                             icon = Image.Path "tab_about.png",
                             isEnabled = (model.ApplicationSettings |> areSet),
-                            items = [
-                                model.ApplicationSettings.PlayerName
-                                    |> Option.map (fun playerName ->
+                            items =
+                                match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
+                                | Some playerName, Some communityName ->
+                                    [
                                         View.ShellContent(
-                                            content = OpponentList.view model.OpponentListModel playerName (Msg.OpponentListMsg >> dispatch)
+                                            content = OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)
                                         )
-                                    )
-                                    |> Option.defaultValue (View.ShellContent()) // TODO: Is there a better way?
-                            ])
+                                    ]
+                                | _, _ -> []
+                        )
                         View.Tab(
                             title = "Settings",
                             icon = Image.Path "tab_settings.png",
