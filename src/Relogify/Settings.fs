@@ -270,6 +270,7 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
 let view (model: Model) (savedPlayerName: string) (savedCommunityName: string) dispatch =
     View.ContentPage(
         title = "Settings",
+        icon = Image.Path "tab_settings.png",
         content =
             View.Grid(
                 children = [

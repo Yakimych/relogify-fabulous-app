@@ -20,49 +20,20 @@ module App =
         | OpponentListMsg of OpponentList.Msg
         | AddResultMsg of AddResult.Msg
         | SettingsMsg of Settings.Msg
-        | ShowTimer
+        | SetCurrentPage of tabIndex: int
+//        | ShowTimer
 
     type CmdMsg =
         | OpponentListCmdMsg of OpponentList.CmdMsg
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
-        | ShowTimerCmdMsg
-
-    let shellRef = ViewRef<Shell>()
-
-    let navigateToPage (pageName: string) (opponentName: string) =
-        match shellRef.TryValue with
-        | None -> ()
-        | Some shell ->
-            let route = ShellNavigationState.op_Implicit (sprintf "%s?name=%s" pageName opponentName)
-            async {
-                do! shell.GoToAsync route |> Async.AwaitTask
-            } |> Async.StartImmediate
-
-        Cmd.none
-
-    let showTimer () =
-        match shellRef.TryValue with
-        | None -> ()
-        | Some shell ->
-            async {
-                let popModalFunc = fun () -> shell.Navigation.PopModalAsync() |> ignore
-
-                let timerModel = Timer.init popModalFunc
-                let timerView = Timer.view timerModel
-                let timerPage = timerView.Create() :?> Page
-                do! shell.Navigation.PushModalAsync(timerPage) |> Async.AwaitTask
-
-            } |> Async.StartImmediate
-
-        Cmd.none
+//        | ShowTimerCmdMsg
 
     let mapCommands cmdMsg =
         match cmdMsg with
         | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
-        | ShowTimerCmdMsg -> navigateToPage "TestRoute" "TestOpponent" // TODO: Parametrize
 //        | ShowTimerCmdMsg -> showTimer ()
 
     let selectOpponentTabIndex = 0
@@ -107,79 +78,62 @@ module App =
 
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
             | _ -> updatedModel, appCmdMsgsFromSettings
-        | ShowTimer -> model, [ShowTimerCmdMsg]
+        | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
+//        | ShowTimer -> model, [ShowTimerCmdMsg]
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
 
+    let getPageTitle (tabIndex: int) =
+        match tabIndex with
+        | 0 -> "Select Opponent"
+        | 1 -> "Settings"
+        | 2 -> "Report result" // TODO: Remove
+        | 3 -> "About"
+        | _ -> failwith (sprintf "No tab with index %d" tabIndex)
+
     let view (model: Model) dispatch =
-        View.Shell(
-            ref=shellRef,
-            shellBackgroundColor = navigationPrimaryColor,
-            shellForegroundColor = Color.White,
-            shellTitleColor = Color.White,
-            shellDisabledColor = Color.FromHex("#B4FFFFFF"),
-            shellUnselectedColor = Color.FromHex("#95FFFFFF"),
-            shellTabBarBackgroundColor = navigationPrimaryColor,
-            shellTabBarForegroundColor = Color.White,
-            shellTabBarUnselectedColor = Color.FromHex("#95FFFFFF"),
-            shellTabBarTitleColor = Color.White,
-            items = [
-                View.TabBar(
-                    created = (fun tabBar -> tabBar.CurrentItem <- tabBar.Items.[model.SelectedTabIndex]),
-                    items = [
-                        View.Tab(
-                            title = "Select Opponent",
-                            icon = Image.Path "tab_about.png",
-                            isEnabled = (model.ApplicationSettings |> areSet),
-                            items =
-                                match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
-                                | Some playerName, Some communityName ->
-                                    [
-                                        View.ShellContent(
-                                            content = OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)
-                                        )
-                                    ]
-                                | _, _ -> []
-                        )
-                        View.Tab(
-                            title = "Settings",
-                            icon = Image.Path "tab_settings.png",
-                            items = [
-                                View.ShellContent(
-                                    content =
-                                        Settings.view
-                                            model.SettingsModel
-                                            (model.ApplicationSettings.PlayerName |> Option.defaultValue "")
-                                            (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
-                                            (Msg.SettingsMsg >> dispatch)
-                                )
-                            ])
-                        View.Tab(
-                            title = "Add Result",
-                            icon = Image.Path "tab_feed.png",
-                            items = [
-                                View.ShellContent(
-                                    content =
-                                        (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch))
-                                            .ToolbarItems(
-                                                [
-                                                    View.ToolbarItem(
-                                                        text = "Timer",
-                                                        command = (fun () -> dispatch ShowTimer)
-                                                    )
-                                                ])
-                                )
-                            ])
-                        View.Tab(
-                            title = "About",
-                            icon = Image.Path "tab_about.png",
-                            items = [
-                                View.ShellContent(
-                                    content = About.view model.AboutModel
-                                )
-                            ])
-                    ])
+        View.NavigationPage(
+            barBackgroundColor = navigationPrimaryColor,
+            barTextColor = Color.White,
+
+            pages = [
+                View.TabbedPage(
+                    currentPageChanged = (fun maybeIndex ->
+                        match maybeIndex with
+                        | None -> ()
+                        | Some index -> dispatch (SetCurrentPage index)
+                    ),
+                    title = getPageTitle model.SelectedTabIndex,
+                    barBackgroundColor = navigationPrimaryColor,
+                    unselectedTabColor = Color.FromHex("#95FFFFFF"),
+                    selectedTabColor = Color.White,
+                    barTextColor = Color.White,
+                    children = [
+                        yield!
+                            match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
+                            | Some playerName, Some communityName ->
+                                [OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)]
+                            | _, _ -> []
+
+                        yield (Settings.view
+                            model.SettingsModel
+                            (model.ApplicationSettings.PlayerName |> Option.defaultValue "")
+                            (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
+                            (Msg.SettingsMsg >> dispatch))
+                            .ToolbarItems([View.ToolbarItem(text = "Timer")])
+
+                        yield (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch))
+                            .ToolbarItems(
+                                [
+                                    View.ToolbarItem(
+                                        text = "Timer"
+    //                                                        command = (fun () -> dispatch ShowTimer)
+                                    )
+                                ])
+
+                        yield About.view model.AboutModel
             ])
+        ])
 
     let program = Program.mkProgramWithCmdMsg init update view mapCommands
 
