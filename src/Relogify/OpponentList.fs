@@ -49,7 +49,8 @@ let update model msg: Model * CmdMsg list =
 
 let view (model: Model) (playerName: string) (communityName: string) dispatch =
     View.ContentPage(
-        title = sprintf "%s: select opponent in %s" playerName communityName,
+        title = "Play",
+        icon = Image.Path "tab_feed.png",
         content =
             match model.FetchPlayersState with
             | NotAsked -> View.Label(text = "Not asked")

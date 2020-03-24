@@ -37,12 +37,14 @@ let update model msg: Model * CmdMsg list =
     | SetOpponentPoints newOpponentPoints -> { model with OpponentPoints = newOpponentPoints }, []
     | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime }, []
 
-let getTitle = sprintf "Playing against %s"
+// TODO: Move to parent
+//let getTitle = sprintf "Playing against %s"
 
 // TODO: Show this via View.MasterDetailPage?
 let view model dispatch =
     View.ContentPage(
-        title = getTitle model.OpponentName,
+        title = "Report",
+        icon = Image.Path "tab_feed.png",
         content = View.CollectionView(
             items = [
                 View.StackLayout(
