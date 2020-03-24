@@ -6,7 +6,7 @@ open Xamarin.Forms
 type Model =
     { SomeText: string }
 
-let init () = { SomeText = "Some text" }
+let init (opponentName: string) = { SomeText = opponentName }
 
 let view model =
     View.StackLayout(
@@ -15,7 +15,7 @@ let view model =
          children =
              [
                   View.Label(
-                      text = sprintf "Some test view: %s" model.SomeText,
+                      text = sprintf "Opponent Name: %s" model.SomeText,
                       horizontalOptions = LayoutOptions.Center,
                       width = 200.0,
                       horizontalTextAlignment = TextAlignment.Center)
