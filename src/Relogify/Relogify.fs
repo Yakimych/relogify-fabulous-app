@@ -67,7 +67,6 @@ module App =
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
 
-
     let init () =
         Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
 
@@ -86,11 +85,11 @@ module App =
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
-            match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
-            | (Some _, Some communityName) ->
+            if model.ApplicationSettings |> areSet then
                 let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel opponentListMsg
                 { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
-            | _, _ -> model, []
+            else
+                model, []
         | AddResultMsg addResultMsg ->
             let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg
             { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
