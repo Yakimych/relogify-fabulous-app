@@ -72,14 +72,17 @@ module App =
           ApplicationSettings = applicationSettings
           SettingsModel = Settings.initModel applicationSettings.CommunityName.IsSome }, cmdMsgs
 
+    let pushPage (page: Page) (model: Model): Model =
+        { model with PageStack = [page] @ model.PageStack }
+
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
             if model.ApplicationSettings |> areSet then
                 let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
                 match opponentListOutMsg with
-                | Some (OpponentList.PlayerSelectedOutMsg selectedPlayerName) ->
-                    { model with PageStack = [AddResult selectedPlayerName] @ model.PageStack }, opponentListCmdMsgs |> List.map OpponentListCmdMsg // TODO: Make a function for this
+                | Some (OpponentList.PlayerSelectedOutMsg selectedOpponentName) ->
+                    model |> pushPage (AddResult selectedOpponentName), opponentListCmdMsgs |> List.map OpponentListCmdMsg
                 | None ->
                     { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
             else
@@ -105,7 +108,7 @@ module App =
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
             | _ -> updatedModel, appCmdMsgsFromSettings
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
-        | PushPage page -> { model with PageStack = [page] @ model.PageStack }, []
+        | PushPage page -> model |> pushPage page, []
         | PopPage -> { model with PageStack = model.PageStack |> List.skip 1 }, [] // TODO: Check whether we're on the HomePage
         | PopBackToHome -> { model with PageStack = [Home] }, []
 
