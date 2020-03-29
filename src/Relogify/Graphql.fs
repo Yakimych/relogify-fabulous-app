@@ -5,7 +5,7 @@ open FSharp.Data.GraphQL
 type MyProvider = GraphQLProvider<"schema.json">
 
 let getPlayersOperation =
-    MyProvider.Operation<"""query q($communityName: String!) {
+    MyProvider.Operation<"""query getPlayers($communityName: String!) {
         players(where: { community: { name: { _eq: $communityName } } }) {
             id
             name
