@@ -7,8 +7,14 @@ open Routes
 open Xamarin.Forms
 
 module App =
+    type Page =
+        | Home
+        | AddResult of opponentName: string
+        | Timer
+
     type Model =
       { SomeFlag : bool
+        PageStack : Page list
         SelectedTabIndex : int
         OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
@@ -21,13 +27,14 @@ module App =
         | AddResultMsg of AddResult.Msg
         | SettingsMsg of Settings.Msg
         | SetCurrentPage of tabIndex: int
-//        | ShowTimer
+        | PushPage of Page
+        | PopPage
+        | PopBackToHome
 
     type CmdMsg =
         | OpponentListCmdMsg of OpponentList.CmdMsg
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
-//        | ShowTimerCmdMsg
 
     let mapCommands cmdMsg =
         match cmdMsg with
@@ -39,6 +46,16 @@ module App =
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
 
+    let getPlayerNameIfAddingResult (pageType: Page) =
+        match pageType with
+        | AddResult playerName -> Some(playerName)
+        | _ -> None
+
+    let isAddingResultFor (model: Model): string option =
+        model.PageStack
+        |> List.choose getPlayerNameIfAddingResult
+        |> List.tryHead
+
     let init () =
         Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
 
@@ -47,6 +64,7 @@ module App =
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
         { SomeFlag = false
+          PageStack = [Home]
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel = opponentListModel
           AboutModel = About.initModel
@@ -63,8 +81,12 @@ module App =
             else
                 model, []
         | AddResultMsg addResultMsg ->
-            let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg
-            { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
+            let maybeOpponentName = model |> isAddingResultFor
+            match model.ApplicationSettings.PlayerName, maybeOpponentName with
+            | Some ownName, Some opponentName ->
+                let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg ownName opponentName
+                { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
+            | _ -> model, []
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
@@ -79,7 +101,9 @@ module App =
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
             | _ -> updatedModel, appCmdMsgsFromSettings
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
-//        | ShowTimer -> model, [ShowTimerCmdMsg]
+        | PushPage page -> { model with PageStack = [page] @ model.PageStack }, []
+        | PopPage -> { model with PageStack = model.PageStack |> List.skip 1 }, [] // TODO: Check whether we're on the HomePage
+        | PopBackToHome -> { model with PageStack = [Home] }, []
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
 
@@ -91,13 +115,28 @@ module App =
         | 3 -> "About"
         | _ -> failwith (sprintf "No tab with index %d" tabIndex)
 
+    let timerIsShown (model: Model) = model.PageStack |> List.contains Timer
+
     let view (model: Model) dispatch =
+        // TODO: Refactor this away as soon as ApplicationSettings are refactored into an Option/List of communities
+        let currentPlayerOrEmpty = model.ApplicationSettings.PlayerName |> Option.defaultValue ""
+
+        let modalPage dispatch =
+                        (Settings.view
+                            model.SettingsModel
+                            currentPlayerOrEmpty
+                            (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
+                            (Msg.SettingsMsg >> dispatch))
+
+        let addingResultFor = model |> isAddingResultFor
+
         View.NavigationPage(
             barBackgroundColor = navigationPrimaryColor,
             barTextColor = Color.White,
+            popped = (fun _ -> dispatch PopPage),
 
             pages = [
-                View.TabbedPage(
+                yield View.TabbedPage(
                     currentPageChanged = (fun maybeIndex ->
                         match maybeIndex with
                         | None -> ()
@@ -112,7 +151,16 @@ module App =
                         yield!
                             match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
                             | Some playerName, Some communityName ->
-                                [OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)]
+                                [(OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)) // TODO: Remove parens and ToolBarItems
+                                    .BackButtonPressed(fun _ -> dispatch PopPage)
+                                    .ToolbarItems(
+                                        [
+                                            View.ToolbarItem(
+                                                text = "Add Result",
+                                                command = (fun () -> dispatch (PushPage (AddResult "TestPlayer"))) // TODO: Pipes
+                                            )
+                                        ])
+                                 ]
                             | _, _ -> []
 
                         yield (Settings.view
@@ -120,19 +168,25 @@ module App =
                             (model.ApplicationSettings.PlayerName |> Option.defaultValue "")
                             (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
                             (Msg.SettingsMsg >> dispatch))
-                            .ToolbarItems([View.ToolbarItem(text = "Timer")])
 
-                        yield (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch))
+                        yield About.view model.AboutModel
+                ])
+
+                yield! addingResultFor
+                    |> Option.map (fun playerNameToAddResultFor -> // TODO: Use the playerName
+                        [(AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
                             .ToolbarItems(
                                 [
                                     View.ToolbarItem(
-                                        text = "Timer"
-    //                                                        command = (fun () -> dispatch ShowTimer)
+                                        text = "Timer",
+                                        command = (fun () -> dispatch (PushPage Timer))
                                     )
-                                ])
+                                ])]
+                    )
+                    |> Option.defaultValue []
 
-                        yield About.view model.AboutModel
-            ])
+                if model |> timerIsShown then
+                    yield (modalPage dispatch).BackButtonPressed(fun _ -> dispatch PopPage)
         ])
 
     let program = Program.mkProgramWithCmdMsg init update view mapCommands

@@ -5,17 +5,13 @@ open Fabulous.XamarinForms
 open Xamarin.Forms
 
 type Model =
-    { OwnName: string
-      OpponentName: string
-      OwnPoints: int
+    { OwnPoints: int
       OpponentPoints: int
       ExtraTime: bool
       CanAddResult: bool }
 
 let initModel =
-    { OwnName = "Player1"
-      OpponentName = "Player2"
-      OwnPoints = 0
+    { OwnPoints = 0
       OpponentPoints = 0
       CanAddResult = false
       ExtraTime = false }
@@ -31,17 +27,19 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | Noop -> Cmd.none
 
-let update model msg: Model * CmdMsg list =
+let update (model: Model) (msg: Msg) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match msg with
     | SetOwnPoints newOwnPoints -> { model with OwnPoints = newOwnPoints }, []
     | SetOpponentPoints newOpponentPoints -> { model with OpponentPoints = newOpponentPoints }, []
-    | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime }, []
+    | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime; CanAddResult = true }, []
 
 // TODO: Move to parent
 //let getTitle = sprintf "Playing against %s"
 
+let navigationPrimaryColor = Color.FromHex("#2196F3")
+
 // TODO: Show this via View.MasterDetailPage?
-let view model dispatch =
+let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) =
     View.ContentPage(
         title = "Report",
         icon = Image.Path "tab_feed.png",
@@ -56,8 +54,8 @@ let view model dispatch =
                              coldefs = [ Star; Star ],
                              rowdefs = [ Auto; Auto; Star ],
                              children = [
-                                 View.Label(text = model.OwnName, fontSize = FontSize.Named(NamedSize.Small)).Column(0).Row(0)
-                                 View.Label(text = model.OpponentName, fontSize = FontSize.Named(NamedSize.Small)).Column(1).Row(0)
+                                 View.Label(text = ownName, fontSize = FontSize.Named(NamedSize.Small)).Column(0).Row(0)
+                                 View.Label(text = opponentName, fontSize = FontSize.Named(NamedSize.Small)).Column(1).Row(0)
 
                                  View.Picker(
                                      title = "My Points",
