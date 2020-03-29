@@ -17,8 +17,12 @@ type Model =
 type Msg =
     | PlayersFetched of string list
     | FetchPlayerError of string
+    | PlayerSelected of int option
 
 type CmdMsg = FetchPlayersCmdMsg of communityName: string
+
+type OutMsg =
+    | PlayerSelectedOutMsg of player: string
 
 let initModel (applicationSettings: ApplicationSettings): Model * CmdMsg list =
     let cmdMsgs =
@@ -42,10 +46,16 @@ let mapCommands =
     function
     | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
 
-let update model msg: Model * CmdMsg list =
+let update model msg: Model * CmdMsg list * OutMsg option =
     match msg with
-    | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, []
-    | FetchPlayerError errorMessage -> model, [] // TODO: Handle errors correctly
+    | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, [], None
+    | FetchPlayerError errorMessage -> model, [], None // TODO: Handle errors correctly
+    | PlayerSelected maybeIndex ->
+        match maybeIndex, model.FetchPlayersState with
+        | Some index, Fetched players ->
+            let selectedPlayer = players.[index]
+            model, [], Some <| PlayerSelectedOutMsg selectedPlayer
+        | _ -> model, [], None
 
 let view (model: Model) (playerName: string) (communityName: string) dispatch =
     View.ContentPage(
@@ -57,6 +67,7 @@ let view (model: Model) (playerName: string) (communityName: string) dispatch =
             | Fetching communityName -> View.Label(sprintf "Fetching players in community: %s" communityName)
             | Fetched players ->
                 View.ListView(
-                    items = (players |> List.map (fun playerName -> View.TextCell playerName))
+                    items = (players |> List.map (fun playerName -> View.TextCell playerName)),
+                    itemSelected = (fun index -> dispatch (PlayerSelected index))
                 )
     )
