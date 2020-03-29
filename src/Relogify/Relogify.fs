@@ -158,16 +158,7 @@ module App =
                         yield!
                             match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
                             | Some playerName, Some communityName ->
-                                [(OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)) // TODO: Remove parens and ToolBarItems
-                                    .BackButtonPressed(fun _ -> dispatch PopPage)
-                                    .ToolbarItems(
-                                        [
-                                            View.ToolbarItem(
-                                                text = "Add Result",
-                                                command = (fun () -> AddResult "TestPlayer" |> PushPage |> dispatch)
-                                            )
-                                        ])
-                                 ]
+                                [OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)]
                             | _, _ -> []
 
                         yield (Settings.view
@@ -193,7 +184,7 @@ module App =
                     |> Option.defaultValue []
 
                 if model |> timerIsShown then
-                    yield (modalPage dispatch).BackButtonPressed(fun _ -> dispatch PopPage)
+                    yield (modalPage dispatch)
         ])
 
     let program = Program.mkProgramWithCmdMsg init update view mapCommands
