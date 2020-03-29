@@ -76,8 +76,12 @@ module App =
         match msg with
         | OpponentListMsg opponentListMsg ->
             if model.ApplicationSettings |> areSet then
-                let opponentListModel, opponentListCmdMsgs = OpponentList.update model.OpponentListModel opponentListMsg
-                { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
+                let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
+                match opponentListOutMsg with
+                | Some (OpponentList.PlayerSelectedOutMsg selectedPlayerName) ->
+                    { model with PageStack = [AddResult selectedPlayerName] @ model.PageStack }, opponentListCmdMsgs |> List.map OpponentListCmdMsg // TODO: Make a function for this
+                | None ->
+                    { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
             else
                 model, []
         | AddResultMsg addResultMsg ->
@@ -157,7 +161,7 @@ module App =
                                         [
                                             View.ToolbarItem(
                                                 text = "Add Result",
-                                                command = (fun () -> dispatch (PushPage (AddResult "TestPlayer"))) // TODO: Pipes
+                                                command = (fun () -> AddResult "TestPlayer" |> PushPage |> dispatch)
                                             )
                                         ])
                                  ]
