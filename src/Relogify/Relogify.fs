@@ -75,6 +75,9 @@ module App =
     let pushPage (page: Page) (model: Model): Model =
         { model with PageStack = [page] @ model.PageStack }
 
+    let popPage (model: Model) =
+        { model with PageStack = model.PageStack |> List.skip 1 }
+
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
@@ -87,13 +90,20 @@ module App =
                     { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
             else
                 model, []
+
         | AddResultMsg addResultMsg ->
+            // TODO: Refactor/decouple the logic
             let maybeOpponentName = model |> isAddingResultFor
-            match model.ApplicationSettings.PlayerName, maybeOpponentName with
+            let updatedModel =
+                match addResultMsg with
+                | AddResult.ResultAddedSuccess -> model |> popPage
+                | _ -> model
+
+            match updatedModel.ApplicationSettings.PlayerName, maybeOpponentName with
             | Some ownName, Some opponentName ->
-                let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg ownName opponentName
-                { model with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
-            | _ -> model, []
+                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg ownName opponentName
+                { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
+            | _ -> updatedModel, []
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
@@ -109,7 +119,7 @@ module App =
             | _ -> updatedModel, appCmdMsgsFromSettings
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
         | PushPage page -> model |> pushPage page, []
-        | PopPage -> { model with PageStack = model.PageStack |> List.skip 1 }, [] // TODO: Check whether we're on the HomePage
+        | PopPage -> model |> popPage, [] // TODO: Check whether we're on the HomePage
         | PopBackToHome -> { model with PageStack = [Home] }, []
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")

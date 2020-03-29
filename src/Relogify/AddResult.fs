@@ -3,35 +3,70 @@ module Relogify.AddResult
 open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
+open Relogify.Graphql
 
 type Model =
     { OwnPoints: int
       OpponentPoints: int
       ExtraTime: bool
-      CanAddResult: bool }
+      IsAddingResult: bool } // TODO: Replace with loading state
 
 let initModel =
     { OwnPoints = 0
       OpponentPoints = 0
-      CanAddResult = false
-      ExtraTime = false }
+      ExtraTime = false
+      IsAddingResult = false }
 
 type Msg =
     | SetOwnPoints of int
     | SetOpponentPoints of int
     | ToggleExtraTime
+    | AddResultInitiated
+    | ResultAddedSuccess
+    | ResultAddedError of string
 
-type CmdMsg = Noop
+type ResultModel =
+    { PlayerName: string
+      OpponentName: string
+      PlayerPoints: int
+      OpponentPoints: int
+      ExtraTime: bool }
+
+type CmdMsg =
+    | Noop
+    | AddResultCmdMsg of ResultModel
+
+let addResultCmd (resultModel: ResultModel) =
+    async {
+        // replace getPlayersOperation with addResultOperation
+        let! result = getPlayersOperation.AsyncRun(runtimeContext, resultModel.OpponentName) // TODO: Send in the real data
+        return
+            match result.Data with
+            | Some _ -> ResultAddedSuccess
+            | None -> ResultAddedError "Error adding result" // TODO: Handle errors correctly
+    }
+    |> Cmd.ofAsyncMsg
 
 let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | Noop -> Cmd.none
+    | AddResultCmdMsg resultModel -> addResultCmd resultModel
 
 let update (model: Model) (msg: Msg) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match msg with
     | SetOwnPoints newOwnPoints -> { model with OwnPoints = newOwnPoints }, []
     | SetOpponentPoints newOpponentPoints -> { model with OpponentPoints = newOpponentPoints }, []
-    | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime; CanAddResult = true }, []
+    | ToggleExtraTime -> { model with ExtraTime = not model.ExtraTime }, []
+    | ResultAddedSuccess -> { model with IsAddingResult = false }, []
+    | ResultAddedError _ -> { model with IsAddingResult = false }, []
+    | AddResultInitiated ->
+        let resultModel: ResultModel =
+            { PlayerName = ownName
+              OpponentName = opponentName
+              PlayerPoints = model.OwnPoints
+              OpponentPoints = model.OpponentPoints
+              ExtraTime = model.ExtraTime }
+        { model with IsAddingResult = true }, [AddResultCmdMsg resultModel]
 
 // TODO: Move to parent
 //let getTitle = sprintf "Playing against %s"
@@ -80,12 +115,11 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
 
                         View.Button(
                             text = "Add Result",
-                            isEnabled = model.CanAddResult,
                             backgroundColor = Color.Orange,
-                            textColor = Color.DarkBlue
-                            // TODO: Add command
+                            textColor = Color.DarkBlue,
+                            command = (fun _ -> dispatch AddResultInitiated),
+                            commandCanExecute = not model.IsAddingResult
                         )
-
                     ]
                 )
             ]
