@@ -44,7 +44,6 @@ type AddResultModel =
       ExtraTime: bool }
 
 type CmdMsg =
-    | Noop
     | AddResultCmdMsg of AddResultModel
 
 let rand = Random()
@@ -67,10 +66,9 @@ let addResultCmd (resultModel: AddResultModel) =
 
 let mapCommands: CmdMsg -> Cmd<Msg> =
     function
-    | Noop -> Cmd.none
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
 
-let toAddResultModel (playerName: string) (opponentName: string) (communityName: string) (resultModel: ResultModel): AddResultModel =
+let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
       OpponentName = opponentName
       CommunityName = communityName
@@ -80,7 +78,7 @@ let toAddResultModel (playerName: string) (opponentName: string) (communityName:
 
 let updateResultModel (resultModel: ResultModel) (msg: Msg): ResultModel =
     match msg with
-    | SetOwnPoints newOwnPoints -> { resultModel with OpponentPoints = newOwnPoints }
+    | SetOwnPoints newOwnPoints -> { resultModel with OwnPoints = newOwnPoints }
     | SetOpponentPoints newOpponentPoints -> { resultModel with OpponentPoints = newOpponentPoints }
     | ToggleExtraTime -> { resultModel with ExtraTime = not resultModel.ExtraTime }
     | _ -> resultModel
@@ -89,8 +87,7 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
     match model.state, msg with
     | (EditingResult, SetOwnPoints _)
     | (EditingResult, SetOpponentPoints _)
-    | (EditingResult, ToggleExtraTime) -> { model with resultModel = updateResultModel model.resultModel msg }, []
-
+    | (EditingResult, ToggleExtraTime)
     | (ErrorAddingResult _, SetOwnPoints _)
     | (ErrorAddingResult _, SetOpponentPoints _)
     | (ErrorAddingResult _, ToggleExtraTime) -> { model with state = EditingResult; resultModel = updateResultModel model.resultModel msg }, []
@@ -119,7 +116,6 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
 
     View.ContentPage(
         title = "Add Result",
-//        icon = Image.Path "tab_feed.png",
         content = View.CollectionView(
             items = [
                 View.StackLayout(
@@ -137,11 +133,13 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                  View.Picker(
                                      isEnabled = not isAddingResult,
                                      items = ([1 .. 10] |> List.map(fun i -> i.ToString())),
+                                     selectedIndexChanged = (fun (index,  _) -> dispatch (SetOwnPoints index)), // TODO: Use the value rather than the index
                                      selectedIndex = model.resultModel.OwnPoints // TODO: "Bind" to the value rather than the index
                                  ).Column(0).Row(1)
                                  View.Picker(
                                      isEnabled = not isAddingResult,
                                      items = ([1 .. 10] |> List.map(fun i -> i.ToString())),
+                                     selectedIndexChanged = (fun (index,  _) -> dispatch (SetOpponentPoints index)), // TODO: Use the value rather than the index
                                      selectedIndex = model.resultModel.OpponentPoints // TODO: "Bind" to the value rather than the index
                                  ).Column(1).Row(1)
                              ]
