@@ -96,12 +96,12 @@ module App =
             let maybeOpponentName = model |> isAddingResultFor
             let updatedModel =
                 match addResultMsg with
-                | AddResult.ResultAddedSuccess -> model |> popPage
+                | AddResult.ResultAddedSuccess -> { model with AddResultModel = AddResult.initModel } |> popPage
                 | _ -> model
 
-            match updatedModel.ApplicationSettings.PlayerName, maybeOpponentName with
-            | Some ownName, Some opponentName ->
-                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg ownName opponentName
+            match updatedModel.ApplicationSettings.CommunityName, updatedModel.ApplicationSettings.PlayerName, maybeOpponentName with
+            | Some communityName, Some ownName, Some opponentName ->
+                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg communityName ownName opponentName
                 { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
             | _ -> updatedModel, []
         | SettingsMsg settingsMsg ->
