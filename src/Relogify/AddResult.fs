@@ -118,8 +118,8 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
     let isAddingResult = model.state |> isAddingResult
 
     View.ContentPage(
-        title = "Report",
-        icon = Image.Path "tab_feed.png",
+        title = "Add Result",
+//        icon = Image.Path "tab_feed.png",
         content = View.CollectionView(
             items = [
                 View.StackLayout(
