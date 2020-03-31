@@ -19,12 +19,14 @@ module App =
         OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
         AddResultModel : AddResult.Model
+        TimerModel : Timer.Model
         ApplicationSettings : ApplicationSettings
         AboutModel : About.Model }
 
     type Msg =
         | OpponentListMsg of OpponentList.Msg
         | AddResultMsg of AddResult.Msg
+        | TimerMsg of Timer.Msg
         | SettingsMsg of Settings.Msg
         | SetCurrentPage of tabIndex: int
         | PushPage of Page
@@ -69,6 +71,7 @@ module App =
           OpponentListModel = opponentListModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
+          TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
           SettingsModel = Settings.initModel applicationSettings.CommunityName.IsSome }, cmdMsgs
 
@@ -104,6 +107,9 @@ module App =
                 let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg communityName ownName opponentName
                 { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
             | _ -> updatedModel, []
+        | TimerMsg timerMsg ->
+            let timerModel, _ = Timer.update model.TimerModel timerMsg
+            { model with TimerModel = timerModel }, []
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
@@ -137,13 +143,6 @@ module App =
     let view (model: Model) dispatch =
         // TODO: Refactor this away as soon as ApplicationSettings are refactored into an Option/List of communities
         let currentPlayerOrEmpty = model.ApplicationSettings.PlayerName |> Option.defaultValue ""
-
-        let modalPage dispatch =
-                        (Settings.view
-                            model.SettingsModel
-                            currentPlayerOrEmpty
-                            (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
-                            (Msg.SettingsMsg >> dispatch))
 
         let addingResultFor = model |> isAddingResultFor
 
@@ -194,7 +193,7 @@ module App =
                     |> Option.defaultValue []
 
                 if model |> timerIsShown then
-                    yield (modalPage dispatch)
+                    yield (Timer.view model.TimerModel (Msg.TimerMsg >> dispatch))
         ])
 
     let program = Program.mkProgramWithCmdMsg init update view mapCommands
