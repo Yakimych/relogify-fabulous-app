@@ -37,13 +37,14 @@ module App =
         | OpponentListCmdMsg of OpponentList.CmdMsg
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
+        | TimerCmdMsg of Timer.CmdMsg
 
     let mapCommands cmdMsg =
         match cmdMsg with
         | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
-//        | ShowTimerCmdMsg -> showTimer ()
+        | TimerCmdMsg x -> Timer.mapCommands x |> Cmd.map TimerMsg
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -108,8 +109,8 @@ module App =
                 { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
             | _ -> updatedModel, []
         | TimerMsg timerMsg ->
-            let timerModel, _ = Timer.update model.TimerModel timerMsg
-            { model with TimerModel = timerModel }, []
+            let timerModel, timerCmdMsgs = Timer.update model.TimerModel timerMsg
+            { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
