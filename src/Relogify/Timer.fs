@@ -93,46 +93,93 @@ let view model dispatch =
         title = "Match Timer",
         backgroundColor = Color.Black,
         content =
-            View.StackLayout(
-                 padding = Thickness 20.0,
-                 verticalOptions = LayoutOptions.Center,
-                 children =
-                     [
-                          View.Label(
-                              text = sprintf "State: %s" (model |> getState),
-                              horizontalOptions = LayoutOptions.Center,
-                              width = 200.0,
-                              textColor = Color.White,
-                              horizontalTextAlignment = TextAlignment.Center
-                          )
-                          View.Label(
-                              text = sprintf "Time left: %d" (model |> getTimeLeft),
-                              horizontalOptions = LayoutOptions.Center,
-                              width = 200.0,
-                              textColor = Color.White,
-                              horizontalTextAlignment = TextAlignment.Center
-                          )
-                          View.Button(
-                              text = "Start",
-                              horizontalOptions = LayoutOptions.Center,
-                              width = 200.0,
-                              textColor = Color.White,
-                              command = (fun _ -> dispatch StartRequested)
-                          )
-                          View.Button(
-                              text = "Pause",
-                              horizontalOptions = LayoutOptions.Center,
-                              width = 200.0,
-                              textColor = Color.White,
-                              command = (fun _ -> dispatch PauseRequested)
-                          )
-                          View.Button(
-                              text = "Reset",
-                              horizontalOptions = LayoutOptions.Center,
-                              width = 200.0,
-                              textColor = Color.White,
-                              command = (fun _ -> dispatch Reset)
-                          )
-                     ]
+            View.Grid(
+                rowdefs = [ Auto; Absolute 120.0; Absolute 120.0; Star ],
+                children =
+                    [
+                        View.Grid(
+                            coldefs = [ Star; Auto; Star ],
+                            children = [
+                                View.Grid(
+                                    horizontalOptions = LayoutOptions.CenterAndExpand,
+                                    verticalOptions = LayoutOptions.Center,
+                                    margin = Thickness(15.0),
+                                    height = 200.0,
+                                    children = [
+                                        View.Label(
+                                            text = "05:00",
+                                            horizontalOptions = LayoutOptions.CenterAndExpand,
+                                            verticalOptions = LayoutOptions.Center,
+                                            margin = Thickness(15.0),
+                                            textColor = Color.White,
+                                            fontSize = FontSize.FontSize(72.0)
+                                        )
+                                    ]
+                                ).Column(1)
+
+                                View.StackLayout(
+                                    orientation = StackOrientation.Vertical,
+                                    verticalOptions = LayoutOptions.Center,
+                                    horizontalOptions= LayoutOptions.Center,
+                                    children = [
+                                        View.Switch(
+                                            isToggled = false, // TODO: ExtraTime
+                                            isEnabled = false, // TODO
+                                            onColor = Color.Orange,
+                                            toggled = (fun _ -> dispatch ToggleExtraTime)
+                                        )
+                                        View.Label(
+                                            fontSize = FontSize.Named(NamedSize.Small),
+                                            text = "Extra Time", // TODO: nbsp
+                                            textColor = Color.White
+                                        )
+                                    ]
+                                ).Column(2)
+                            ]
+                        ).Row(0)
+
+                        View.Button(
+                            text = "Start",
+                            // TODO: withButtonStyle?
+                            margin = Thickness(15.0),
+                            cornerRadius = 10,
+                            borderWidth = 2.0,
+                            height = 60.0,
+                            fontSize = FontSize.FontSize(36.0),
+                            isVisible = true, // TODO
+                            backgroundColor = Color.DarkGreen,
+                            borderColor = Color.White,
+                            textColor = Color.Yellow,
+                            command = (fun _ -> dispatch StartRequested)
+                        ).Row(1)
+                        View.Button(
+                            text = "Pause",
+                            // TODO: withButtonStyle?
+                            margin = Thickness(15.0),
+                            cornerRadius = 10,
+                            borderWidth = 2.0,
+                            height = 60.0,
+                            fontSize = FontSize.FontSize(36.0),
+                            isVisible = false, // TODO
+                            backgroundColor = Color.LightGray,
+                            borderColor = Color.White,
+                            textColor = Color.Black,
+                            command = (fun _ -> dispatch PauseRequested)
+                        ).Row(1)
+                        View.Button(
+                            text = "Reset",
+                            // TODO: withButtonStyle?
+                            margin = Thickness(15.0),
+                            cornerRadius = 10,
+                            borderWidth = 2.0,
+                            height = 60.0,
+                            fontSize = FontSize.FontSize(36.0),
+                            isVisible = true, // TODO
+                            backgroundColor = Color.Red,
+                            borderColor = Color.White,
+                            textColor = Color.Black,
+                            command = (fun _ -> dispatch Reset)
+                        ).Row(2)
+                    ]
+            )
         )
-    )
