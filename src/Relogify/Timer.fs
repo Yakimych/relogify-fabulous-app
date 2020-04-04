@@ -46,21 +46,24 @@ let mapCommands =
     | RequestPauseCmdMsg -> requestPause ()
     | TimerTickCmdMsg -> tick 200
 
+let normalTimeTotalMilliseconds = 5 * 60 * 1000
+let extraTimeTotalMilliseconds = 2 * 60 * 1000
+
 let initModel =
-     { TotalTimeMs = 60 * 1000
+     { TotalTimeMs = normalTimeTotalMilliseconds
        TimeElapsedMs = 0
        ExtraTime = false
        State = NotRunning }
 
 let getTotalTime extraTime =
-    if extraTime then 20 * 1000 else 60 * 1000
+    if extraTime then extraTimeTotalMilliseconds else normalTimeTotalMilliseconds
 
 let update (model: Model) (msg: Msg): Model * CmdMsg list =
     match model.State, msg with
     | NotRunning, StartRequested -> { model with State = Starting }, [RequestStartCmdMsg]
     | NotRunning _, ToggleExtraTime ->
         let extraTime = not model.ExtraTime
-        { model with State = NotRunning; TotalTimeMs = getTotalTime(extraTime) }, []
+        { model with State = NotRunning; ExtraTime = extraTime; TotalTimeMs = getTotalTime(extraTime); TimeElapsedMs = 0 }, []
     | NotRunning _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, []
 
     | Starting, Started startTime -> { model with State = Running startTime }, [TimerTickCmdMsg]
@@ -77,18 +80,30 @@ let update (model: Model) (msg: Msg): Model * CmdMsg list =
 
     | _ -> model, []
 
-let getTimeLeft (model: Model) =
-    model.TotalTimeMs - model.TimeElapsedMs
+let getFormattedTimeLeft (model: Model): string =
+    let timeLeftMs = model.TotalTimeMs - model.TimeElapsedMs
+    let totalSecondsLeft = timeLeftMs / 1000
+    let minutesLeft = totalSecondsLeft / 60
+    let secondsLeftInCurrentMinute = totalSecondsLeft % 60
 
-// TODO: Remove
-let getState (model: Model) =
-    match model.State with
-    | Running _ -> sprintf "Running, timeElapsed: %d" model.TimeElapsedMs
-    | Starting -> sprintf "Starting... timeElapsed: %d" model.TimeElapsedMs
-    | Pausing _ -> sprintf "Pausing... timeElapsed: %d" model.TimeElapsedMs
-    | NotRunning -> sprintf "NotRunning, timeElapsed: %d" model.TimeElapsedMs
+    sprintf "%02i:%02i" minutesLeft secondsLeftInCurrentMinute
 
-let view model dispatch =
+let canToggleExtraTime (state: TimerState): bool =
+    match state with
+    | NotRunning -> true
+    | _ -> false
+
+let canStartTimer (state: TimerState): bool =
+    match state with
+    | NotRunning -> true
+    | _ -> false
+
+let canStopTimer (state: TimerState): bool =
+    match state with
+    | Running _ -> true
+    | _ -> false
+
+let view (model: Model) dispatch =
     View.ContentPage(
         title = "Match Timer",
         backgroundColor = Color.Black,
@@ -107,7 +122,7 @@ let view model dispatch =
                                     height = 200.0,
                                     children = [
                                         View.Label(
-                                            text = "05:00",
+                                            text = getFormattedTimeLeft model,
                                             horizontalOptions = LayoutOptions.CenterAndExpand,
                                             verticalOptions = LayoutOptions.Center,
                                             margin = Thickness(15.0),
@@ -123,14 +138,14 @@ let view model dispatch =
                                     horizontalOptions= LayoutOptions.Center,
                                     children = [
                                         View.Switch(
-                                            isToggled = false, // TODO: ExtraTime
-                                            isEnabled = false, // TODO
+                                            isToggled = model.ExtraTime,
+                                            isEnabled = canToggleExtraTime model.State,
                                             onColor = Color.Orange,
                                             toggled = (fun _ -> dispatch ToggleExtraTime)
                                         )
                                         View.Label(
                                             fontSize = FontSize.Named(NamedSize.Small),
-                                            text = "Extra Time", // TODO: nbsp
+                                            text = "Extra Time", // TODO: linebreak between words
                                             textColor = Color.White
                                         )
                                     ]
@@ -146,7 +161,7 @@ let view model dispatch =
                             borderWidth = 2.0,
                             height = 60.0,
                             fontSize = FontSize.FontSize(36.0),
-                            isVisible = true, // TODO
+                            isVisible = canStartTimer model.State,
                             backgroundColor = Color.DarkGreen,
                             borderColor = Color.White,
                             textColor = Color.Yellow,
@@ -160,7 +175,7 @@ let view model dispatch =
                             borderWidth = 2.0,
                             height = 60.0,
                             fontSize = FontSize.FontSize(36.0),
-                            isVisible = false, // TODO
+                            isVisible = canStopTimer model.State,
                             backgroundColor = Color.LightGray,
                             borderColor = Color.White,
                             textColor = Color.Black,
@@ -174,7 +189,7 @@ let view model dispatch =
                             borderWidth = 2.0,
                             height = 60.0,
                             fontSize = FontSize.FontSize(36.0),
-                            isVisible = true, // TODO
+                            isVisible = true,
                             backgroundColor = Color.Red,
                             borderColor = Color.White,
                             textColor = Color.Black,
