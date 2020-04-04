@@ -13,8 +13,7 @@ module App =
         | Timer
 
     type Model =
-      { SomeFlag : bool
-        PageStack : Page list
+      { PageStack : Page list
         SelectedTabIndex : int
         OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
@@ -66,13 +65,12 @@ module App =
         let opponentListModel, opponentListCmdMsgs = OpponentList.initModel applicationSettings
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
-        { SomeFlag = false
-          PageStack = [Home]
+        { PageStack = [Home]
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel = opponentListModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
-          TimerModel = Timer.initModel
+          TimerModel = Timer.initModel ()
           ApplicationSettings = applicationSettings
           SettingsModel = Settings.initModel applicationSettings.CommunityName.IsSome }, cmdMsgs
 
@@ -80,7 +78,7 @@ module App =
         { model with PageStack = [page] @ model.PageStack }
 
     let popPage (model: Model) =
-        { model with PageStack = model.PageStack |> List.skip 1 }
+        { model with PageStack = model.PageStack |> List.skip 1; TimerModel = Timer.initModel () }
 
     let update msg (model: Model) =
         match msg with
