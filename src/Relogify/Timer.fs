@@ -6,14 +6,14 @@ open Fabulous.XamarinForms
 open Xamarin.Forms
 
 type TimerState =
-    | NotRunning of int
-    | Starting of int
-    | Running of int
-    | Pausing of int
+    | NotRunning
+    | Starting
+    | Running of lastTickAt: DateTime
+    | Pausing of lastTickAt: DateTime
 
 type Model =
     { TotalTimeMs: int
-      LastTickAt: DateTime
+      TimeElapsedMs: int
       ExtraTime: bool
       State: TimerState }
 
@@ -44,52 +44,49 @@ let mapCommands =
     function
     | RequestStartCmdMsg -> requestStart ()
     | RequestPauseCmdMsg -> requestPause ()
-    | TimerTickCmdMsg -> tick 5000
+    | TimerTickCmdMsg -> tick 200
 
 let initModel =
      { TotalTimeMs = 60 * 1000
-       LastTickAt = DateTime()
+       TimeElapsedMs = 0
        ExtraTime = false
-       State = NotRunning 0 }
+       State = NotRunning }
 
 let getTotalTime extraTime =
     if extraTime then 20 * 1000 else 60 * 1000
 
 let update (model: Model) (msg: Msg): Model * CmdMsg list =
     match model.State, msg with
-    | NotRunning timeElapsed, StartRequested -> { model with State = Starting timeElapsed }, [RequestStartCmdMsg]
+    | NotRunning, StartRequested -> { model with State = Starting }, [RequestStartCmdMsg]
     | NotRunning _, ToggleExtraTime ->
         let extraTime = not model.ExtraTime
-        { model with State = NotRunning 0; TotalTimeMs = getTotalTime(extraTime) }, []
-    | NotRunning _, Reset -> { model with State = NotRunning 0 }, []
+        { model with State = NotRunning; TotalTimeMs = getTotalTime(extraTime) }, []
+    | NotRunning _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, []
 
-    | Starting timeElapsed, Started startTime -> { model with State = Running timeElapsed; LastTickAt = startTime }, [TimerTickCmdMsg]
+    | Starting, Started startTime -> { model with State = Running startTime }, [TimerTickCmdMsg]
 
-    | Running timeElapsed, PauseRequested -> { model with State = Pausing timeElapsed }, [RequestPauseCmdMsg]
-    | Running _, Reset -> { model with State = NotRunning 0 }, []
-    | Running timeElapsed, Tick timeOfTick ->
-        let msElapsedSinceLastTick = int (timeOfTick - model.LastTickAt).TotalMilliseconds
-        { model with State = Running (timeElapsed + msElapsedSinceLastTick); LastTickAt = timeOfTick }, [TimerTickCmdMsg]
+    | Running lastTickAt, PauseRequested -> { model with State = Pausing lastTickAt }, [RequestPauseCmdMsg]
+    | Running _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, []
+    | Running lastTickAt, Tick newTickAt ->
+        let msElapsedSinceLastTick = int (newTickAt - lastTickAt).TotalMilliseconds
+        { model with State = Running newTickAt; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, [TimerTickCmdMsg]
 
-    | Pausing timeElapsed, Paused pauseTime ->
-        let msElapsedSinceLastTick = int (pauseTime - model.LastTickAt).TotalMilliseconds
-        { model with State = NotRunning (timeElapsed + msElapsedSinceLastTick); LastTickAt = pauseTime }, []
+    | Pausing lastTickAt, Paused pauseTime ->
+        let msElapsedSinceLastTick = int (pauseTime - lastTickAt).TotalMilliseconds
+        { model with State = NotRunning; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, []
 
     | _ -> model, []
 
 let getTimeLeft (model: Model) =
-    match model.State with
-    | Running timeElapsed
-    | Starting timeElapsed
-    | Pausing timeElapsed
-    | NotRunning timeElapsed -> model.TotalTimeMs - timeElapsed
+    model.TotalTimeMs - model.TimeElapsedMs
 
+// TODO: Remove
 let getState (model: Model) =
     match model.State with
-    | Running timeElapsed -> sprintf "Running, timeElapsed: %d" timeElapsed
-    | Starting timeElapsed -> sprintf "Starting... timeElapsed: %d" timeElapsed
-    | Pausing timeElapsed -> sprintf "Pausing... timeElapsed: %d" timeElapsed
-    | NotRunning timeElapsed -> sprintf "NotRunning, timeElapsed: %d" timeElapsed
+    | Running _ -> sprintf "Running, timeElapsed: %d" model.TimeElapsedMs
+    | Starting -> sprintf "Starting... timeElapsed: %d" model.TimeElapsedMs
+    | Pausing _ -> sprintf "Pausing... timeElapsed: %d" model.TimeElapsedMs
+    | NotRunning -> sprintf "NotRunning, timeElapsed: %d" model.TimeElapsedMs
 
 let view model dispatch =
     View.ContentPage(
