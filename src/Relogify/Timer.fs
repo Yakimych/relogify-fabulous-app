@@ -49,14 +49,15 @@ let mapCommands =
 let normalTimeTotalMilliseconds = 5 * 60 * 1000
 let extraTimeTotalMilliseconds = 2 * 60 * 1000
 
-let initModel =
-     { TotalTimeMs = normalTimeTotalMilliseconds
-       TimeElapsedMs = 0
-       ExtraTime = false
-       State = NotRunning }
-
 let getTotalTime extraTime =
     if extraTime then extraTimeTotalMilliseconds else normalTimeTotalMilliseconds
+
+let initModel () =
+     let extraTime = false
+     { TotalTimeMs = extraTime |> getTotalTime
+       TimeElapsedMs = 0
+       ExtraTime = extraTime
+       State = NotRunning }
 
 let update (model: Model) (msg: Msg): Model * CmdMsg list =
     match model.State, msg with
@@ -103,6 +104,14 @@ let canStopTimer (state: TimerState): bool =
     | Running _ -> true
     | _ -> false
 
+let applyTimerButtonStyle (button: ViewElement) =
+    button
+        .Margin(Thickness(15.0))
+        .ButtonCornerRadius(10)
+        .BorderWidth(2.0)
+        .Height(60.0)
+        .FontSize(FontSize.FontSize(36.0))
+
 let view (model: Model) dispatch =
     View.ContentPage(
         title = "Match Timer",
@@ -145,7 +154,7 @@ let view (model: Model) dispatch =
                                         )
                                         View.Label(
                                             fontSize = FontSize.Named(NamedSize.Small),
-                                            text = "Extra Time", // TODO: linebreak between words
+                                            text = sprintf "Extra%sTime" Environment.NewLine,
                                             textColor = Color.White
                                         )
                                     ]
@@ -155,46 +164,28 @@ let view (model: Model) dispatch =
 
                         View.Button(
                             text = "Start",
-                            // TODO: withButtonStyle?
-                            margin = Thickness(15.0),
-                            cornerRadius = 10,
-                            borderWidth = 2.0,
-                            height = 60.0,
-                            fontSize = FontSize.FontSize(36.0),
                             isVisible = canStartTimer model.State,
                             backgroundColor = Color.DarkGreen,
                             borderColor = Color.White,
                             textColor = Color.Yellow,
                             command = (fun _ -> dispatch StartRequested)
-                        ).Row(1)
+                        ).Row(1) |> applyTimerButtonStyle
                         View.Button(
                             text = "Pause",
-                            // TODO: withButtonStyle?
-                            margin = Thickness(15.0),
-                            cornerRadius = 10,
-                            borderWidth = 2.0,
-                            height = 60.0,
-                            fontSize = FontSize.FontSize(36.0),
                             isVisible = canStopTimer model.State,
                             backgroundColor = Color.LightGray,
                             borderColor = Color.White,
                             textColor = Color.Black,
                             command = (fun _ -> dispatch PauseRequested)
-                        ).Row(1)
+                        ).Row(1) |> applyTimerButtonStyle
                         View.Button(
                             text = "Reset",
-                            // TODO: withButtonStyle?
-                            margin = Thickness(15.0),
-                            cornerRadius = 10,
-                            borderWidth = 2.0,
-                            height = 60.0,
-                            fontSize = FontSize.FontSize(36.0),
                             isVisible = true,
                             backgroundColor = Color.Red,
                             borderColor = Color.White,
                             textColor = Color.Black,
                             command = (fun _ -> dispatch Reset)
-                        ).Row(2)
+                        ).Row(2) |> applyTimerButtonStyle
                     ]
             )
         )
