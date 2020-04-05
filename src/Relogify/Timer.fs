@@ -4,6 +4,7 @@ open System
 open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
+open Relogify.SoundPlayer
 
 type TimerState =
     | NotRunning
@@ -37,7 +38,10 @@ let tick (msBetweenTicks: int) =
         return Tick DateTime.Now }
     |> Cmd.ofAsyncMsg
 
-let requestStart () = Started DateTime.Now |> Cmd.ofMsg
+let requestStart () =
+    playSound "final_siren.mp3"
+    Started DateTime.Now |> Cmd.ofMsg
+
 let requestPause () = Paused DateTime.Now |> Cmd.ofMsg
 
 let mapCommands =
