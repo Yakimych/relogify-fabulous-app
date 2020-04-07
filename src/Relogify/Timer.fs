@@ -16,6 +16,8 @@ type Model =
     { TotalTimeMs: int
       TimeElapsedMs: int
       ExtraTime: bool
+      HalfTimeBeepHasBeenPlayed: bool
+      ExpirationWarningHasBeenPlayed: bool
       State: TimerState }
 
 type Msg =
@@ -26,11 +28,16 @@ type Msg =
     | Reset
     | Tick of DateTime
     | ToggleExtraTime
+    | SetSoundHasBeenPlayed of SoundType
 
 type CmdMsg =
     | RequestStartCmdMsg
     | RequestPauseCmdMsg
     | TimerTickCmdMsg
+    | PlaySoundCmdMsg of SoundType
+
+type OutMsg =
+    | TimerExpiredOutMsg of extraTime: bool
 
 let tick (msBetweenTicks: int) =
     async {
@@ -39,59 +46,99 @@ let tick (msBetweenTicks: int) =
     |> Cmd.ofAsyncMsg
 
 let requestStart () =
-    playSound "final_siren.mp3"
     Started DateTime.Now |> Cmd.ofMsg
+
+let requestPlaySound (soundType: SoundType) =
+    playSound soundType
+    SetSoundHasBeenPlayed soundType |> Cmd.ofMsg
 
 let requestPause () = Paused DateTime.Now |> Cmd.ofMsg
 
+let tickFrequencyMs = 200
 let mapCommands =
     function
     | RequestStartCmdMsg -> requestStart ()
     | RequestPauseCmdMsg -> requestPause ()
-    | TimerTickCmdMsg -> tick 200
+    | PlaySoundCmdMsg soundType -> requestPlaySound soundType
+    | TimerTickCmdMsg -> tick tickFrequencyMs
 
-let normalTimeTotalMilliseconds = 5 * 60 * 1000
-let extraTimeTotalMilliseconds = 2 * 60 * 1000
+//let normalTimeTotalMilliseconds = 5 * 60 * 1000
+//let extraTimeTotalMilliseconds = 2 * 60 * 1000
+//let expirationWarningMilliseconds = 2 * 60 * 1000
+
+let normalTimeTotalMilliseconds = 10 * 1000
+let extraTimeTotalMilliseconds = 2 * 1000
+let expirationWarningMilliseconds = 2 * 1000
 
 let getTotalTime extraTime =
     if extraTime then extraTimeTotalMilliseconds else normalTimeTotalMilliseconds
+
+let isPastHalftTime (model: Model) =
+    model.TimeElapsedMs > model.TotalTimeMs / 2
+
+let isPastWarningTime (model: Model) =
+    model.TimeElapsedMs > model.TotalTimeMs - expirationWarningMilliseconds
 
 let initModel () =
      let extraTime = false
      { TotalTimeMs = extraTime |> getTotalTime
        TimeElapsedMs = 0
        ExtraTime = extraTime
+       HalfTimeBeepHasBeenPlayed = false
+       ExpirationWarningHasBeenPlayed = false
        State = NotRunning }
 
-let update (model: Model) (msg: Msg): Model * CmdMsg list =
+let getSoundToPlayCmdMsgs (model: Model): CmdMsg list =
+    if isPastHalftTime model && not model.HalfTimeBeepHasBeenPlayed then
+        [PlaySoundCmdMsg HalfTimeBeep]
+    else if isPastWarningTime model && not model.ExpirationWarningHasBeenPlayed then
+        [PlaySoundCmdMsg ExpirationWarning]
+    else
+        []
+
+let update (model: Model) (msg: Msg): Model * CmdMsg list * OutMsg option =
     match model.State, msg with
-    | NotRunning, StartRequested -> { model with State = Starting }, [RequestStartCmdMsg]
+    | NotRunning, StartRequested -> { model with State = Starting }, [RequestStartCmdMsg], None
     | NotRunning _, ToggleExtraTime ->
         let extraTime = not model.ExtraTime
-        { model with State = NotRunning; ExtraTime = extraTime; TotalTimeMs = getTotalTime(extraTime); TimeElapsedMs = 0 }, []
-    | NotRunning _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, []
+        { model with State = NotRunning; ExtraTime = extraTime; TotalTimeMs = getTotalTime(extraTime); TimeElapsedMs = 0 }, [], None
+    | NotRunning _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0; HalfTimeBeepHasBeenPlayed = false; ExpirationWarningHasBeenPlayed = false }, [], None
 
-    | Starting, Started startTime -> { model with State = Running startTime }, [TimerTickCmdMsg]
+    | Starting, Started startTime -> { model with State = Running startTime }, [TimerTickCmdMsg], None
 
-    | Running lastTickAt, PauseRequested -> { model with State = Pausing lastTickAt }, [RequestPauseCmdMsg]
-    | Running _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, []
+    | Running lastTickAt, PauseRequested -> { model with State = Pausing lastTickAt }, [RequestPauseCmdMsg], None
+    | Running _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, [], None
     | Running lastTickAt, Tick newTickAt ->
         let msElapsedSinceLastTick = int (newTickAt - lastTickAt).TotalMilliseconds
-        { model with State = Running newTickAt; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, [TimerTickCmdMsg]
+        let newTimeElapsed = (model.TimeElapsedMs + msElapsedSinceLastTick)
+
+        if newTimeElapsed >= model.TotalTimeMs then
+            model, [PlaySoundCmdMsg FinalSiren], Some (TimerExpiredOutMsg model.ExtraTime)
+        else
+            { model with State = Running newTickAt; TimeElapsedMs = newTimeElapsed }, [TimerTickCmdMsg] @ getSoundToPlayCmdMsgs model, None
+    | Running _, SetSoundHasBeenPlayed soundType ->
+        let newModel =
+            match soundType with
+            | HalfTimeBeep -> { model with HalfTimeBeepHasBeenPlayed = true }
+            | ExpirationWarning -> { model with ExpirationWarningHasBeenPlayed = true }
+            | FinalSiren -> model
+
+        newModel, [], None
 
     | Pausing lastTickAt, Paused pauseTime ->
         let msElapsedSinceLastTick = int (pauseTime - lastTickAt).TotalMilliseconds
-        { model with State = NotRunning; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, []
+        { model with State = NotRunning; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, [], None
 
-    | _ -> model, []
+    | _ -> model, [], None
 
 let getFormattedTimeLeft (model: Model): string =
     let timeLeftMs = model.TotalTimeMs - model.TimeElapsedMs
     let totalSecondsLeft = timeLeftMs / 1000
     let minutesLeft = totalSecondsLeft / 60
     let secondsLeftInCurrentMinute = totalSecondsLeft % 60
+    // TODO: We're one second off
 
-    sprintf "%02i:%02i" minutesLeft secondsLeftInCurrentMinute
+    sprintf "%02i:%02i (%i)" minutesLeft secondsLeftInCurrentMinute timeLeftMs
 
 let canToggleExtraTime (state: TimerState): bool =
     match state with
@@ -140,7 +187,7 @@ let view (model: Model) dispatch =
                                             verticalOptions = LayoutOptions.Center,
                                             margin = Thickness(15.0),
                                             textColor = Color.White,
-                                            fontSize = FontSize.FontSize(72.0)
+                                            fontSize = FontSize.FontSize(24.0) // TODO: 72
                                         )
                                     ]
                                 ).Column(1)
