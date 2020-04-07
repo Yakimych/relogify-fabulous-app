@@ -80,6 +80,13 @@ module App =
     let popPage (model: Model) =
         { model with PageStack = model.PageStack |> List.skip 1; TimerModel = Timer.initModel () }
 
+    let navigationPageRef = ViewRef<NavigationPage>()
+
+    let forcePopLastPage () =
+        match navigationPageRef.TryValue with
+        | None -> ()
+        | Some navigationPage -> async { do! navigationPage.PopAsync() |> Async.AwaitTask |> Async.Ignore } |> Async.StartImmediate
+
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
@@ -107,8 +114,16 @@ module App =
                 { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
             | _ -> updatedModel, []
         | TimerMsg timerMsg ->
-            let timerModel, timerCmdMsgs = Timer.update model.TimerModel timerMsg
-            { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
+            let timerModel, timerCmdMsgs, timerOutMsg = Timer.update model.TimerModel timerMsg
+            match timerOutMsg with
+            | Some (Timer.OutMsg.TimerExpiredOutMsg timerWasRunInExtraTime) ->
+                do forcePopLastPage ()
+                let newResultModel = { model.AddResultModel.resultModel with ExtraTime = timerWasRunInExtraTime }
+
+                // TODO: The next line is confusing and not particularly readable
+                { model with AddResultModel = { model.AddResultModel with resultModel = newResultModel } }, timerCmdMsgs |> List.map TimerCmdMsg
+            | _ ->
+                { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
         | SettingsMsg settingsMsg ->
             let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
@@ -146,6 +161,7 @@ module App =
         let addingResultFor = model |> isAddingResultFor
 
         View.NavigationPage(
+            ref = navigationPageRef,
             barBackgroundColor = navigationPrimaryColor,
             barTextColor = Color.White,
             popped = (fun _ -> dispatch PopPage),
