@@ -1,14 +1,13 @@
 ﻿namespace Relogify
 
+open AddResult
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
-open Routes
 open Xamarin.Forms
 
 module App =
     type Page =
-        | Home
         | AddResult of opponentName: string
         | Timer
 
@@ -59,26 +58,30 @@ module App =
         |> List.tryHead
 
     let init () =
-        Routing.RegisterRoute("TestRoute", typeof<TestRoutingPage>)
-
         let applicationSettings = ApplicationSettings.getApplicationSettings ()
         let opponentListModel, opponentListCmdMsgs = OpponentList.initModel applicationSettings
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
-        { PageStack = [Home]
+        { PageStack = []
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel = opponentListModel
           AboutModel = About.initModel
           AddResultModel = AddResult.initModel
-          TimerModel = Timer.initModel ()
+          TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
           SettingsModel = Settings.initModel applicationSettings.CommunityName.IsSome }, cmdMsgs
 
     let pushPage (page: Page) (model: Model): Model =
         { model with PageStack = [page] @ model.PageStack }
 
-    let popPage (model: Model) =
-        { model with PageStack = model.PageStack |> List.skip 1; TimerModel = Timer.initModel () }
+    let popPage (model: Model): Model =
+        match model.PageStack with
+        | [] -> model
+        | pageToPop :: restOfPages ->
+            let newModel = { model with PageStack = restOfPages }
+            match pageToPop with
+            | Timer -> { newModel with TimerModel = Timer.initModel }
+            | AddResult _ -> { newModel with AddResultModel = AddResult.initModel }
 
     let navigationPageRef = ViewRef<NavigationPage>()
 
@@ -105,7 +108,10 @@ module App =
             let maybeOpponentName = model |> isAddingResultFor
             let updatedModel =
                 match addResultMsg with
-                | AddResult.ResultAddedSuccess -> { model with AddResultModel = AddResult.initModel } |> popPage
+                // TODO: Should this be an OutCmd?
+                | AddResult.ResultAddedSuccess ->
+                    do forcePopLastPage () // TODO: Should this be a command?
+                    { model with AddResultModel = AddResult.initModel } // TODO: Remove this, since the AddResultModel is already reset in the popPage function
                 | _ -> model
 
             match updatedModel.ApplicationSettings.CommunityName, updatedModel.ApplicationSettings.PlayerName, maybeOpponentName with
@@ -117,11 +123,16 @@ module App =
             let timerModel, timerCmdMsgs, timerOutMsg = Timer.update model.TimerModel timerMsg
             match timerOutMsg with
             | Some (Timer.OutMsg.TimerExpiredOutMsg timerWasRunInExtraTime) ->
-                do forcePopLastPage ()
-                let newResultModel = { model.AddResultModel.resultModel with ExtraTime = timerWasRunInExtraTime }
+                do forcePopLastPage () // TODO: Should this be a command?
 
-                // TODO: The next line is confusing and not particularly readable
-                { model with AddResultModel = { model.AddResultModel with resultModel = newResultModel } }, timerCmdMsgs |> List.map TimerCmdMsg
+                let updatedResultModel = { model.AddResultModel.resultModel with ExtraTime = timerWasRunInExtraTime }
+                let updatedAddResultModel = { model.AddResultModel with resultModel = updatedResultModel }
+                let updatedModel =
+                    { model with
+                          TimerModel = Timer.initModel
+                          AddResultModel = updatedAddResultModel }
+
+                updatedModel, timerCmdMsgs |> List.map TimerCmdMsg
             | _ ->
                 { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
         | SettingsMsg settingsMsg ->
@@ -140,7 +151,7 @@ module App =
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
         | PushPage page -> model |> pushPage page, []
         | PopPage -> model |> popPage, [] // TODO: Check whether we're on the HomePage
-        | PopBackToHome -> { model with PageStack = [Home] }, []
+        | PopBackToHome -> { model with PageStack = [] }, []
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
 
@@ -154,11 +165,18 @@ module App =
 
     let timerIsShown (model: Model) = model.PageStack |> List.contains Timer
 
-    let view (model: Model) dispatch =
-        // TODO: Refactor this away as soon as ApplicationSettings are refactored into an Option/List of communities
-        let currentPlayerOrEmpty = model.ApplicationSettings.PlayerName |> Option.defaultValue ""
+    let renderPage (model: Model) dispatch (page: Page) =
+        match page with
+        | AddResult playerNameToAddResultFor ->
+            let currentPlayerOrEmpty = model.ApplicationSettings.PlayerName |> Option.defaultValue ""
+            (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
+                .ToolbarItems([ View.ToolbarItem( text = "Timer", command = (fun () -> dispatch <| PushPage Timer)) ])
+        | Timer ->
+            Timer.view model.TimerModel (Msg.TimerMsg >> dispatch)
 
-        let addingResultFor = model |> isAddingResultFor
+    let view (model: Model) dispatch =
+        let pagesInTheStack: ViewElement seq =
+            model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
 
         View.NavigationPage(
             ref = navigationPageRef,
@@ -194,21 +212,7 @@ module App =
                         yield About.view model.AboutModel
                 ])
 
-                yield! addingResultFor
-                    |> Option.map (fun playerNameToAddResultFor -> // TODO: Use the playerName
-                        [(AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
-                            .ToolbarItems(
-                                [
-                                    View.ToolbarItem(
-                                        text = "Timer",
-                                        command = (fun () -> dispatch (PushPage Timer))
-                                    )
-                                ])]
-                    )
-                    |> Option.defaultValue []
-
-                if model |> timerIsShown then
-                    yield (Timer.view model.TimerModel (Msg.TimerMsg >> dispatch))
+                yield! pagesInTheStack
         ])
 
     let program = Program.mkProgramWithCmdMsg init update view mapCommands

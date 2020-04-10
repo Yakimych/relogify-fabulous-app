@@ -49,7 +49,9 @@ let requestStart () =
     Started DateTime.Now |> Cmd.ofMsg
 
 let requestPlaySound (soundType: SoundType) =
-    playSound soundType
+    // TODO: The first time the sound is played results in a lag
+    // Is there a way to pre-load the stream?
+    async { playSound soundType } |> Async.StartImmediate
     SetSoundHasBeenPlayed soundType |> Cmd.ofMsg
 
 let requestPause () = Paused DateTime.Now |> Cmd.ofMsg
@@ -79,7 +81,7 @@ let isPastHalftTime (model: Model) =
 let isPastWarningTime (model: Model) =
     model.TimeElapsedMs > model.TotalTimeMs - expirationWarningMilliseconds
 
-let initModel () =
+let initModel =
      let extraTime = false
      { TotalTimeMs = extraTime |> getTotalTime
        TimeElapsedMs = 0
@@ -131,14 +133,16 @@ let update (model: Model) (msg: Msg): Model * CmdMsg list * OutMsg option =
 
     | _ -> model, [], None
 
+// TODO: Unit test those calculations
 let getFormattedTimeLeft (model: Model): string =
     let timeLeftMs = model.TotalTimeMs - model.TimeElapsedMs
-    let totalSecondsLeft = timeLeftMs / 1000
-    let minutesLeft = totalSecondsLeft / 60
-    let secondsLeftInCurrentMinute = totalSecondsLeft % 60
-    // TODO: We're one second off
+    let totalSecondsLeft = Math.Ceiling((decimal timeLeftMs) / 1000m)
+    let minutesLeft = totalSecondsLeft / 60m
+    let secondsLeftInCurrentMinute = int totalSecondsLeft % 60
 
-    sprintf "%02i:%02i (%i)" minutesLeft secondsLeftInCurrentMinute timeLeftMs
+    // TODO: Remove timeLeftMs from here
+    sprintf "%02i:%02i (%i)" (int minutesLeft) secondsLeftInCurrentMinute timeLeftMs
+//    sprintf "%02i:%02i" (int minutesLeft) secondsLeftInCurrentMinute
 
 let canToggleExtraTime (state: TimerState): bool =
     match state with
