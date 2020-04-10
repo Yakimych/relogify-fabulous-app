@@ -17,7 +17,6 @@
     <Compile Include="TestView.fs" />
     <Compile Include="Settings.fs" />
     <Compile Include="AddResult.fs" />
-    <Compile Include="Routes.fs" />
     <Compile Include="Relogify.fs" />
     <EmbeddedResource Include="appsettings.json" />
     <EmbeddedResource Include="sounds\expiration_warning.mp3" />

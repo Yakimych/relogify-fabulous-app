@@ -23,7 +23,7 @@ let getStreamFromFile (fileName: string) =
 
 let playSound (soundType: SoundType) =
     let fileName = getFileName soundType
-    let stream = getStreamFromFile fileName
+    use stream = getStreamFromFile fileName
     CrossSimpleAudioPlayer.Current.Load(stream) |> ignore
     CrossSimpleAudioPlayer.Current.Play()
 
