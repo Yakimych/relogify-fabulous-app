@@ -30,7 +30,33 @@ let ``Extra time is not toggled while timer is running`` () =
 
     Assert.Equal(false, finalModel.ExtraTime)
 
-// TODO: Add tests for Tick
+[<Fact>]
+let ``Elapsed time does not get incremented white timer is paused`` () =
+    let model = Timer.initModel
+    let startTime = DateTime(2000, 01, 01, 10, 00, 00)
+    let millisecondsBetweenTicks = 1000.0
+    let millisecondsBetweenTickAndPause = 300.0
+    let timeOfFirstTick = startTime.AddMilliseconds(millisecondsBetweenTicks)
+
+    // Pause between ticks
+    let timeOfPause = timeOfFirstTick.AddMilliseconds(millisecondsBetweenTickAndPause)
+    let startTimeAfterPause = timeOfPause.AddMinutes(10.0)
+    let timeOfSecondTick = startTimeAfterPause.AddMilliseconds(millisecondsBetweenTicks)
+
+    let actions =
+        [ StartRequested
+          Started startTime
+          Tick timeOfFirstTick
+          PauseRequested
+          Paused timeOfPause
+          StartRequested
+          Started startTimeAfterPause
+          Tick timeOfSecondTick ]
+
+    let finalModel = actions |> List.fold modelReducer model
+
+    let expectedTimeElapsed = int <| millisecondsBetweenTicks * 2.0 + millisecondsBetweenTickAndPause
+    Assert.Equal(expectedTimeElapsed, finalModel.TimeElapsedMs)
 
 [<Theory>]
 [<InlineData(300_000, "05:00")>]
