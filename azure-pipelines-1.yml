@@ -26,7 +26,7 @@ steps:
     outputDirectory: '$(outputDirectory)'
     configuration: '$(buildConfiguration)'
 
-- script: dotnet test src/**/*.Tests.*.fsproj --logger trx
+- script: dotnet test src/**/*.Tests.*.fsproj --logger trx --collect "Code coverage"
 - task: PublishTestResults@2
   condition: succeededOrFailed()
   inputs:
