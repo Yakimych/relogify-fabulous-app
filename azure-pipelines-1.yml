@@ -25,3 +25,10 @@ steps:
     projectFile: '**/*droid*.fsproj'
     outputDirectory: '$(outputDirectory)'
     configuration: '$(buildConfiguration)'
+
+- script: dotnet test src/**/*.Tests.*.fsproj --logger trx
+- task: PublishTestResults@2
+  condition: succeededOrFailed()
+  inputs:
+    testRunner: VSTest
+    testResultsFiles: '**/*.trx'
