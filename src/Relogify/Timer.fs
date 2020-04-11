@@ -64,13 +64,9 @@ let mapCommands =
     | PlaySoundCmdMsg soundType -> requestPlaySound soundType
     | TimerTickCmdMsg -> tick tickFrequencyMs
 
-//let normalTimeTotalMilliseconds = 5 * 60 * 1000
-//let extraTimeTotalMilliseconds = 2 * 60 * 1000
-//let expirationWarningMilliseconds = 2 * 60 * 1000
-
-let normalTimeTotalMilliseconds = 10 * 1000
-let extraTimeTotalMilliseconds = 2 * 1000
-let expirationWarningMilliseconds = 2 * 1000
+let normalTimeTotalMilliseconds = 5 * 60 * 1000
+let extraTimeTotalMilliseconds = 2 * 60 * 1000
+let expirationWarningMilliseconds = 2 * 60 * 1000
 
 let getTotalTime extraTime =
     if extraTime then extraTimeTotalMilliseconds else normalTimeTotalMilliseconds
@@ -133,16 +129,12 @@ let update (model: Model) (msg: Msg): Model * CmdMsg list * OutMsg option =
 
     | _ -> model, [], None
 
-// TODO: Unit test those calculations
-let getFormattedTimeLeft (model: Model): string =
-    let timeLeftMs = model.TotalTimeMs - model.TimeElapsedMs
-    let totalSecondsLeft = Math.Ceiling((decimal timeLeftMs) / 1000m)
+let getFormattedTimeLeft (numberOfMilliseconds: int): string =
+    let totalSecondsLeft = Math.Ceiling((decimal numberOfMilliseconds) / 1000m)
     let minutesLeft = totalSecondsLeft / 60m
     let secondsLeftInCurrentMinute = int totalSecondsLeft % 60
 
-    // TODO: Remove timeLeftMs from here
-    sprintf "%02i:%02i (%i)" (int minutesLeft) secondsLeftInCurrentMinute timeLeftMs
-//    sprintf "%02i:%02i" (int minutesLeft) secondsLeftInCurrentMinute
+    sprintf "%02i:%02i" (int minutesLeft) secondsLeftInCurrentMinute
 
 let canToggleExtraTime (state: TimerState): bool =
     match state with
@@ -186,12 +178,12 @@ let view (model: Model) dispatch =
                                     height = 200.0,
                                     children = [
                                         View.Label(
-                                            text = getFormattedTimeLeft model,
+                                            text = getFormattedTimeLeft (model.TotalTimeMs - model.TimeElapsedMs),
                                             horizontalOptions = LayoutOptions.CenterAndExpand,
                                             verticalOptions = LayoutOptions.Center,
                                             margin = Thickness(15.0),
                                             textColor = Color.White,
-                                            fontSize = FontSize.FontSize(24.0) // TODO: 72
+                                            fontSize = FontSize.FontSize(72.0)
                                         )
                                     ]
                                 ).Column(1)
