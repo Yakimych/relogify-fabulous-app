@@ -31,7 +31,7 @@ steps:
     buildForSimulator: true
     packageApp: false
 
-- script: dotnet test src/**/*.Tests.*.fsproj --logger trx --collect "Code coverage"
+- script: dotnet test src/**/*.Tests.*.fsproj --logger trx
 - task: PublishTestResults@2
   condition: succeededOrFailed()
   inputs:
