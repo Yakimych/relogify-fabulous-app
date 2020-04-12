@@ -36,13 +36,23 @@ module App =
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
         | TimerCmdMsg of Timer.CmdMsg
+        | PopLastPageCmdMsg
 
-    let mapCommands cmdMsg =
+    let navigationPageRef = ViewRef<NavigationPage>()
+
+    let forcePopLastPage () =
+        navigationPageRef.TryValue
+        |> Option.iter (fun navigationPage -> navigationPage.PopAsync() |> Async.AwaitTask |> Async.Ignore |> Async.StartImmediate)
+
+        Cmd.none
+
+    let mapCommands (cmdMsg: CmdMsg): Cmd<Msg> =
         match cmdMsg with
         | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
         | TimerCmdMsg x -> Timer.mapCommands x |> Cmd.map TimerMsg
+        | PopLastPageCmdMsg -> forcePopLastPage ()
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -83,12 +93,10 @@ module App =
             | Timer -> { newModel with TimerModel = Timer.initModel }
             | AddResult _ -> { newModel with AddResultModel = AddResult.initModel }
 
-    let navigationPageRef = ViewRef<NavigationPage>()
-
-    let forcePopLastPage () =
-        match navigationPageRef.TryValue with
-        | None -> ()
-        | Some navigationPage -> async { do! navigationPage.PopAsync() |> Async.AwaitTask |> Async.Ignore } |> Async.StartImmediate
+    let addResultPageShouldBePopped (addResultMsg: AddResult.Msg): bool =
+        match addResultMsg with
+        | AddResult.ResultAddedSuccess -> true
+        | _ -> false
 
     let update msg (model: Model) =
         match msg with
@@ -106,25 +114,16 @@ module App =
         | AddResultMsg addResultMsg ->
             // TODO: Refactor/decouple the logic
             let maybeOpponentName = model |> isAddingResultFor
-            let updatedModel =
-                match addResultMsg with
-                // TODO: Should this be an OutCmd?
-                | AddResult.ResultAddedSuccess ->
-                    do forcePopLastPage () // TODO: Should this be a command?
-                    { model with AddResultModel = AddResult.initModel } // TODO: Remove this, since the AddResultModel is already reset in the popPage function
-                | _ -> model
 
-            match updatedModel.ApplicationSettings.CommunityName, updatedModel.ApplicationSettings.PlayerName, maybeOpponentName with
+            match model.ApplicationSettings.CommunityName, model.ApplicationSettings.PlayerName, maybeOpponentName with
             | Some communityName, Some ownName, Some opponentName ->
-                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg communityName ownName opponentName
-                { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
-            | _ -> updatedModel, []
+                let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg communityName ownName opponentName
+                { model with AddResultModel = addResultModel }, (addResultCmdMsgs |> List.map AddResultCmdMsg) @ [if addResultPageShouldBePopped addResultMsg then yield PopLastPageCmdMsg]
+            | _ -> model, []
         | TimerMsg timerMsg ->
             let timerModel, timerCmdMsgs, timerOutMsg = Timer.update model.TimerModel timerMsg
             match timerOutMsg with
             | Some (Timer.OutMsg.TimerExpiredOutMsg timerWasRunInExtraTime) ->
-                do forcePopLastPage () // TODO: Should this be a command?
-
                 let updatedResultModel = { model.AddResultModel.resultModel with ExtraTime = timerWasRunInExtraTime }
                 let updatedAddResultModel = { model.AddResultModel with resultModel = updatedResultModel }
                 let updatedModel =
@@ -132,7 +131,7 @@ module App =
                           TimerModel = Timer.initModel
                           AddResultModel = updatedAddResultModel }
 
-                updatedModel, timerCmdMsgs |> List.map TimerCmdMsg
+                updatedModel, (timerCmdMsgs |> List.map TimerCmdMsg) @ [PopLastPageCmdMsg]
             | _ ->
                 { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
         | SettingsMsg settingsMsg ->
