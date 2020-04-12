@@ -4,33 +4,31 @@ open Fabulous
 open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
 open Relogify.Graphql
+open Xamarin.Forms
 
-type FetchPlayersState =
+type Model =
     | NotAsked
     | Fetching of communityName: string
-    | Fetched of playerNames: string list
-
-// TODO: Do we need a record here?
-type Model =
-     { FetchPlayersState: FetchPlayersState }
+    | FetchSuccess of playerNames: string list
+    | FetchError of errorMessage: string
 
 type Msg =
     | PlayersFetched of string list
-    | FetchPlayerError of string
+    | FetchPlayersError of string
     | PlayerSelected of int option
 
-type CmdMsg = FetchPlayersCmdMsg of communityName: string
+type CmdMsg =
+    | FetchPlayersCmdMsg of communityName: string
+    | DeselectPlayerCmdMsg
 
 type OutMsg =
     | PlayerSelectedOutMsg of player: string
 
+// TODO: Is it ok for initModel to return a list of CmdMsgs and bypass update completely?
 let initModel (applicationSettings: ApplicationSettings): Model * CmdMsg list =
-    let cmdMsgs =
-        match applicationSettings.PlayerName, applicationSettings.CommunityName with
-        | Some(_), Some(communityName) -> [FetchPlayersCmdMsg communityName]
-        | _ -> []
-
-    { FetchPlayersState = NotAsked }, cmdMsgs
+    match applicationSettings.PlayerName, applicationSettings.CommunityName with
+    | Some(_), Some(communityName) -> Fetching communityName, [FetchPlayersCmdMsg communityName]
+    | _ -> NotAsked, []
 
 let fetchPlayersCmd (communityName: string) =
     async {
@@ -38,35 +36,53 @@ let fetchPlayersCmd (communityName: string) =
         return
             match result.Data with
             | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> PlayersFetched
-            | None -> FetchPlayerError "Error fetching players" // TODO: Handle errors correctly
+            | None -> FetchPlayersError <| sprintf "Error fetching players for community '%s'. Please check your internet connection and restart the app" communityName
     }
     |> Cmd.ofAsyncMsg
+
+let listViewRef = ViewRef<CustomListView>()
+
+let deselectPlayer () =
+    listViewRef.TryValue |> Option.iter (fun listView -> listView.SelectedItem <- null)
+    Cmd.none
 
 let mapCommands =
     function
     | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
+    | DeselectPlayerCmdMsg -> deselectPlayer ()
 
 let update model msg: Model * CmdMsg list * OutMsg option =
     match msg with
-    | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, [], None
-    | FetchPlayerError errorMessage -> model, [], None // TODO: Handle errors correctly
+    | PlayersFetched players -> FetchSuccess players, [], None
+    | FetchPlayersError errorMessage -> FetchError errorMessage, [], None
     | PlayerSelected maybeIndex ->
-        match maybeIndex, model.FetchPlayersState with
-        | Some index, Fetched players ->
+        match maybeIndex, model with
+        | Some index, FetchSuccess players ->
             let selectedPlayer = players.[index]
-            model, [], Some <| PlayerSelectedOutMsg selectedPlayer
+            model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg selectedPlayer
         | _ -> model, [], None
 
-let view (model: Model) (playerName: string) (communityName: string) dispatch =
+let view (model: Model) dispatch =
     View.ContentPage(
         title = "Play",
         icon = Image.Path "tab_feed.png",
         content =
-            match model.FetchPlayersState with
-            | NotAsked -> View.Label(text = "Not asked")
-            | Fetching communityName -> View.Label(sprintf "Fetching players in community: %s" communityName)
-            | Fetched players ->
+            match model with
+            | NotAsked -> View.Label()
+            | Fetching _ -> View.ActivityIndicator(isRunning = true)
+            | FetchError errorMessage ->
+                View.Label(
+                    text = errorMessage,
+                    horizontalOptions = LayoutOptions.Center,
+                    verticalOptions = LayoutOptions.Center,
+                    margin = Thickness(20.0),
+                    textColor = Color.Red
+                )
+                // TODO: Add a "Try again" button?
+            | FetchSuccess players ->
                 View.ListView(
+                    ref = listViewRef,
+                    isPullToRefreshEnabled = false,
                     items = (players |> List.map (fun playerName -> View.TextCell playerName)),
                     itemSelected = (fun index -> dispatch (PlayerSelected index))
                 )

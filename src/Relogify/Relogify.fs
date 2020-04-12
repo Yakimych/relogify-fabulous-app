@@ -197,11 +197,7 @@ module App =
                     selectedTabColor = Color.White,
                     barTextColor = Color.White,
                     children = [
-                        yield!
-                            match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
-                            | Some playerName, Some communityName ->
-                                [OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)]
-                            | _, _ -> []
+                        yield OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
 
                         yield (Settings.view
                             model.SettingsModel
