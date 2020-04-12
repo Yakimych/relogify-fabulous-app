@@ -150,7 +150,7 @@ module App =
             | _ -> updatedModel, appCmdMsgsFromSettings
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
         | PushPage page -> model |> pushPage page, []
-        | PopPage -> model |> popPage, [] // TODO: Check whether we're on the HomePage
+        | PopPage -> model |> popPage, []
         | PopBackToHome -> { model with PageStack = [] }, []
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
@@ -159,8 +159,7 @@ module App =
         match tabIndex with
         | 0 -> "Select Opponent"
         | 1 -> "Settings"
-        | 2 -> "Report result" // TODO: Remove
-        | 3 -> "About"
+        | 2 -> "About"
         | _ -> failwith (sprintf "No tab with index %d" tabIndex)
 
     let timerIsShown (model: Model) = model.PageStack |> List.contains Timer
