@@ -14,7 +14,6 @@
     <Compile Include="About.fs" />
     <Compile Include="OpponentList.fs" />
     <Compile Include="Timer.fs" />
-    <Compile Include="TestView.fs" />
     <Compile Include="Settings.fs" />
     <Compile Include="AddResult.fs" />
     <Compile Include="Relogify.fs" />
