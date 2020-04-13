@@ -3,6 +3,7 @@ module Relogify.Settings
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify
+open Relogify.Graphql
 open Relogify.ApplicationSettings
 open Xamarin.Forms
 open System
@@ -31,7 +32,7 @@ type Msg =
     | CancelDialog
 
 type CmdMsg =
-    | FetchPlayersCmdMsg
+    | FetchPlayersCmdMsg of communityName: string
     | SaveSettingsCmdMsg of Settings
 
 let toApplicationSettings (settings: Settings): ApplicationSettings =
@@ -46,7 +47,7 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
     | (EditingCommunityName _, SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
     | (EditingCommunityName communityName, StartFetchingPlayers) when communityName |> isNotEmpty ->
-        FetchingPlayers communityName, [FetchPlayersCmdMsg]
+        FetchingPlayers communityName, [FetchPlayersCmdMsg communityName]
     | (EditingCommunityName (_), CancelDialog) ->
         Closed, []
 
@@ -58,7 +59,7 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
     | (FailedFetchingPlayers (_, _), SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
     | (FailedFetchingPlayers (communityName, _), StartFetchingPlayers) ->
-        FetchingPlayers communityName, [FetchPlayersCmdMsg]
+        FetchingPlayers communityName, [FetchPlayersCmdMsg communityName]
     | (FailedFetchingPlayers (_, _), CancelDialog) ->
         Closed, []
 
@@ -79,15 +80,13 @@ let initModel (communityNameHasBeenSaved: bool) =
     else
         { DialogState = EditingCommunityName "" }
 
-let rand = Random()
-let fetchPlayersCmd () =
+let fetchPlayersCmd (communityName: string) =
     async {
-        do! Async.Sleep 200
-
-        if rand.Next(2) = 0 then
-            return FetchingPlayersError "Failed to fetch, please check your internet connection and try again"
-        else
-            return FetchingPlayersSuccess ([1 .. 20] |> List.map (sprintf "player%d"))
+        let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
+        return
+            match result.Data with
+            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> FetchingPlayersSuccess
+            | None -> FetchingPlayersError (sprintf "Failed to fetch players for community '%s'. Please check your internet connection and try again." communityName)
     }
     |> Cmd.ofAsyncMsg
 
@@ -100,7 +99,7 @@ let saveSettingsCmd (settings: Settings) =
 
 let mapCommands =
     function
-    | FetchPlayersCmdMsg -> fetchPlayersCmd()
+    | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
     | SaveSettingsCmdMsg settings -> saveSettingsCmd settings
 
 let update model msg: Model * CmdMsg list =
