@@ -140,7 +140,14 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
                 textChanged = (fun args -> dispatch (SetCommunityName args.NewTextValue))
              )
              View.Label(text = "The community name is the last part of your Relogify URL: ")
-             View.Label(text = "TODO: Formatted text")
+             View.Label(
+                 formattedText = View.FormattedString(
+                    spans = [
+                        View.Span(text = "https://relogify.com/")
+                        View.Span(text = "communityname", fontAttributes = FontAttributes.Bold)
+                     ]
+                 )
+             )
              View.Grid(children = [
                  View.Button(
                      text = "Fetch Players",
@@ -158,7 +165,7 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
          ]
      )
 
-let playerInput (players: string list) dispatch =
+let playerInput (players: string list) (communityName: string) dispatch =
     let getPlayerByMaybeIndex (maybeIndex: int option) (players: string list) =
         maybeIndex
         |> Option.bind (fun index -> players |> List.tryItem(index))
@@ -168,9 +175,15 @@ let playerInput (players: string list) dispatch =
         margin = Thickness(10.0),
         orientation = StackOrientation.Vertical,
         children = [
-            View.Label(text = "Step 2: Select your player in ")
-            View.Label(text = "TODO: Formatted text")
-
+            View.Label(
+                formattedText =
+                    View.FormattedString(
+                        spans = [
+                            View.Span(text = "Step 2: Select your player in ")
+                            View.Span(text = communityName, fontAttributes = FontAttributes.Bold)
+                        ]
+                    )
+            )
             View.ListView(
                 items = (players |> List.map (fun player -> View.TextCell player)),
                 itemSelected = (fun maybeIndex -> dispatch <| SelectPlayer (players |> getPlayerByMaybeIndex maybeIndex))
@@ -233,7 +246,7 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
                                      ]
                                  | ChoosingPlayer (players, newSettings) ->
                                      [
-                                         (playerInput players dispatch).Row(0)
+                                         (playerInput players newSettings.CommunityName dispatch).Row(0)
 
                                          View.Grid(
                                              coldefs = [ Star; Star ],
