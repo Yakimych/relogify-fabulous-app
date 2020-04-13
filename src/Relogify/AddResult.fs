@@ -5,6 +5,10 @@ open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
 open Relogify.Graphql
+open Xamarin.Forms
+open Xamarin.Forms
+open Xamarin.Forms
+open Xamarin.Forms
 
 type ResultModel =
     { OwnPoints: int
@@ -111,72 +115,109 @@ let getErrorMessage (model: Model): string =
     | ErrorAddingResult errorMessage -> errorMessage
     | _ -> ""
 
+let getIntValueOrZero (stringValue: string): int =
+    let succeeded, intValue = Int32.TryParse(stringValue)
+    if succeeded then intValue else 0
+
+let maxSelectablePoints = 100
+
+let pointList = [0 .. maxSelectablePoints]
+
+let pointSelector (selectedNumberOfPoints: int) setPoints =
+    View.ScrollView(
+        content =
+            View.StackLayout(
+                orientation = StackOrientation.Vertical,
+                children = (
+                    pointList
+                    |> List.map (fun i ->
+                        View.Button(
+                            text = i.ToString(),
+                            backgroundColor = (if i = selectedNumberOfPoints then Color.Red else Color.Gray),
+                            borderColor = Color.Black,
+                            borderWidth = 2.0,
+                            command = (fun _ -> setPoints i)
+                        )
+                    )
+                )
+            )
+    )
+
 let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) =
     let isAddingResult = model.state |> isAddingResult
 
     View.ContentPage(
         title = "Add Result",
-        content = View.CollectionView(
-            items = [
-                View.StackLayout(
-                    orientation = StackOrientation.Vertical,
-                    padding = Thickness(15.0),
-                    margin = Thickness(15.0),
-                    children = [
-                        View.Grid(
-                             coldefs = [ Star; Star ],
-                             rowdefs = [ Auto; Auto; Star ],
-                             children = [
-                                 View.Label(text = ownName, fontSize = FontSize.Named(NamedSize.Small)).Column(0).Row(0)
-                                 View.Label(text = opponentName, fontSize = FontSize.Named(NamedSize.Small)).Column(1).Row(0)
+        content =
+            View.StackLayout(
+                orientation = StackOrientation.Vertical,
+                padding = Thickness(15.0),
+                margin = Thickness(15.0),
+                children = [
+                    View.Grid(
+                         coldefs = [ Star; Star ],
+                         rowdefs = [ Auto; Auto; Star ],
+                         children = [
+                             View.Label(text = ownName, fontSize = FontSize.Named(NamedSize.Small)).Column(0).Row(0)
+                             View.Label(text = opponentName, fontSize = FontSize.Named(NamedSize.Small)).Column(1).Row(0)
 
-                                 View.Picker(
-                                     isEnabled = not isAddingResult,
-                                     items = ([1 .. 10] |> List.map(fun i -> i.ToString())),
-                                     selectedIndexChanged = (fun (index,  _) -> dispatch (SetOwnPoints index)), // TODO: Use the value rather than the index
-                                     selectedIndex = model.resultModel.OwnPoints // TODO: "Bind" to the value rather than the index
-                                 ).Column(0).Row(1)
-                                 View.Picker(
-                                     isEnabled = not isAddingResult,
-                                     items = ([1 .. 10] |> List.map(fun i -> i.ToString())),
-                                     selectedIndexChanged = (fun (index,  _) -> dispatch (SetOpponentPoints index)), // TODO: Use the value rather than the index
-                                     selectedIndex = model.resultModel.OpponentPoints // TODO: "Bind" to the value rather than the index
-                                 ).Column(1).Row(1)
-                             ]
-                        )
+                             View.Entry(
+                                 isEnabled = not isAddingResult,
+                                 keyboard = Keyboard.Numeric,
+                                 text = model.resultModel.OwnPoints.ToString(),
+                                 textChanged = (fun args -> dispatch <| SetOwnPoints (getIntValueOrZero args.NewTextValue))
+                             ).Column(0).Row(1)
+                             View.Entry(
+                                 isEnabled = not isAddingResult,
+                                 keyboard = Keyboard.Numeric,
+                                 text = model.resultModel.OpponentPoints.ToString(),
+                                 textChanged = (fun args -> dispatch <| SetOpponentPoints (getIntValueOrZero args.NewTextValue))
+                             ).Column(1).Row(1)
 
-                        View.StackLayout(
-                            orientation = StackOrientation.Horizontal,
-                            children = [
-                                View.Label(text = "Extra time", verticalTextAlignment = TextAlignment.Center)
-                                View.CheckBox(
-                                    isEnabled = not isAddingResult,
-                                    margin = Thickness(0.0),
-                                    isChecked = model.resultModel.ExtraTime,
-                                    checkedChanged = (fun _ -> dispatch ToggleExtraTime)
-                                )
-                            ]
-                        )
+                             (pointSelector model.resultModel.OwnPoints (dispatch << SetOwnPoints)).Column(0).Row(2)
+                             (pointSelector model.resultModel.OpponentPoints (dispatch << SetOpponentPoints)).Column(1).Row(2)
+                         ]
+                    )
 
-                        View.Grid(children = [
-                            View.Button(
-                                text = "Add Result",
-                                backgroundColor = Color.Orange,
-                                textColor = Color.DarkBlue,
-                                command = (fun _ -> dispatch AddResultInitiated),
-                                commandCanExecute = not isAddingResult
+                    View.StackLayout(
+                        orientation = StackOrientation.Horizontal,
+                        children = [
+                            View.Label(text = "Extra time", verticalTextAlignment = TextAlignment.Center)
+                            View.CheckBox(
+                                isEnabled = not isAddingResult,
+                                margin = Thickness(0.0),
+                                isChecked = model.resultModel.ExtraTime,
+                                checkedChanged = (fun _ -> dispatch ToggleExtraTime)
                             )
-                            View.ActivityIndicator(
-                               horizontalOptions = LayoutOptions.End,
-                               margin = Thickness(0.0, 0.0, 40.0, 0.0),
-                               isVisible = isAddingResult,
-                               isRunning = isAddingResult
-                            )
-                        ])
+                        ]
+                    )
 
-                        View.Label(text = getErrorMessage model, textColor = Color.Red)
-                    ]
-                )
-            ]
-        )
+                    View.StackLayout(
+                        height = 120.0,
+                        children = [
+                            View.Grid(
+                                height = 120.0,
+                                children = [
+                                    View.Button(
+                                        text = "Add Result",
+                                        backgroundColor = Color.Orange,
+                                        textColor = Color.DarkBlue,
+                                        height = 120.0,
+                                        command = (fun _ -> dispatch AddResultInitiated),
+                                        commandCanExecute = not isAddingResult
+                                    )
+                                    View.ActivityIndicator(
+                                       horizontalOptions = LayoutOptions.End,
+                                       margin = Thickness(0.0, 0.0, 40.0, 0.0),
+                                       isVisible = isAddingResult,
+                                       isRunning = isAddingResult
+                                    )
+                                ]
+                            )
+                        ]
+                    )
+
+                    View.Label(text = getErrorMessage model, textColor = Color.Red)
+                ]
+            )
     )
