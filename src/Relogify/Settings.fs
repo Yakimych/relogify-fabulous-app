@@ -102,7 +102,7 @@ let mapCommands =
     | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
     | SaveSettingsCmdMsg settings -> saveSettingsCmd settings
 
-let update model msg: Model * CmdMsg list =
+let update (model: Model) (msg: Msg): Model * CmdMsg list =
     let newDialogState, cmdMsgList = performTransition model.DialogState msg
     { model with DialogState = newDialogState }, cmdMsgList
 
