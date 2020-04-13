@@ -5,10 +5,6 @@ open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
 open Relogify.Graphql
-open Xamarin.Forms
-open Xamarin.Forms
-open Xamarin.Forms
-open Xamarin.Forms
 
 type ResultModel =
     { OwnPoints: int
@@ -121,7 +117,12 @@ let getIntValueOrZero (stringValue: string): int =
 
 let maxSelectablePoints = 100
 
-let pointList = [0 .. maxSelectablePoints]
+let applyBaseButtonStyle (button: ViewElement) =
+    button
+        .ButtonCornerRadius(10)
+        .BorderWidth(2.0)
+        .BorderColor(Color.Black)
+        .FontSize(Named(NamedSize.Large))
 
 let pointSelector (selectedNumberOfPoints: int) setPoints =
     View.ScrollView(
@@ -129,15 +130,15 @@ let pointSelector (selectedNumberOfPoints: int) setPoints =
             View.StackLayout(
                 orientation = StackOrientation.Vertical,
                 children = (
-                    pointList
+                    [0 .. maxSelectablePoints]
                     |> List.map (fun i ->
                         View.Button(
                             text = i.ToString(),
-                            backgroundColor = (if i = selectedNumberOfPoints then Color.Red else Color.Gray),
-                            borderColor = Color.Black,
-                            borderWidth = 2.0,
+                            backgroundColor = (if i = selectedNumberOfPoints then Color.LightGreen else Color.LightGray),
+                            textColor = Color.Black,
+                            margin = Thickness(15.0, 5.0, 15.0, 0.0),
                             command = (fun _ -> setPoints i)
-                        )
+                        ) |> applyBaseButtonStyle
                     )
                 )
             )
@@ -193,7 +194,6 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                     ).Row(1)
 
                     View.Grid(
-                        height = 60.0,
                         children = [
                             View.Button(
                                 text = "Add Result",
@@ -202,7 +202,7 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                 height = 60.0,
                                 command = (fun _ -> dispatch AddResultInitiated),
                                 commandCanExecute = not isAddingResult
-                            )
+                            ) |> applyBaseButtonStyle
                             View.ActivityIndicator(
                                horizontalOptions = LayoutOptions.End,
                                margin = Thickness(0.0, 0.0, 40.0, 0.0),
