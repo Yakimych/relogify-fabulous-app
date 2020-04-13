@@ -18,7 +18,7 @@ type Msg =
     | PlayerSelected of int option
 
 type CmdMsg =
-    | FetchPlayersCmdMsg of communityName: string
+    | FetchPlayersCmdMsg of communityName: string * currentPlayerName: string
     | DeselectPlayerCmdMsg
 
 type OutMsg =
@@ -26,15 +26,15 @@ type OutMsg =
 
 let initModel (applicationSettings: ApplicationSettings): Model * CmdMsg list =
     match applicationSettings.PlayerName, applicationSettings.CommunityName with
-    | Some(_), Some(communityName) -> Fetching communityName, [FetchPlayersCmdMsg communityName]
+    | Some(currentPlayerName), Some(communityName) -> Fetching communityName, [FetchPlayersCmdMsg (communityName, currentPlayerName)]
     | _ -> FetchError ("", "Application settings are empty"), []
 
-let fetchPlayersCmd (communityName: string) =
+let fetchPlayersCmd (communityName: string) (currentPlayerName: string) =
     async {
         let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
         return
             match result.Data with
-            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> PlayersFetched
+            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> List.except [currentPlayerName] |> PlayersFetched
             | None -> FetchPlayersError (communityName, sprintf "Error fetching players for community '%s'. Please check your internet connection and try again. If the problem persists, check your settings and restart the app" communityName)
     }
     |> Cmd.ofAsyncMsg
@@ -47,12 +47,12 @@ let deselectPlayer () =
 
 let mapCommands: (CmdMsg -> Cmd<Msg>) =
     function
-    | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
+    | FetchPlayersCmdMsg (communityName, currentPlayerName) -> fetchPlayersCmd communityName currentPlayerName
     | DeselectPlayerCmdMsg -> deselectPlayer ()
 
-let update model msg: Model * CmdMsg list * OutMsg option =
+let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg list * OutMsg option =
     match msg with
-    | FetchPlayers communityName -> Fetching communityName, [FetchPlayersCmdMsg communityName], None
+    | FetchPlayers communityName -> Fetching communityName, [FetchPlayersCmdMsg (communityName, currentPlayerName)], None
     | PlayersFetched players -> FetchSuccess players, [], None
     | FetchPlayersError (communityName, errorMessage) -> FetchError (communityName, errorMessage), [], None
     | PlayerSelected maybeIndex ->
@@ -90,7 +90,7 @@ let view (model: Model) (dispatch: Msg -> unit): ViewElement =
                 View.ListView(
                     ref = listViewRef,
                     isPullToRefreshEnabled = false,
-                    items = (players |> List.map (fun playerName -> View.TextCell playerName)),
-                    itemSelected = (fun index -> dispatch (PlayerSelected index))
+                    items = (players |> List.map (fun playerName -> View.TextCell(text = playerName))),
+                    itemSelected = (dispatch << PlayerSelected)
                 )
     )

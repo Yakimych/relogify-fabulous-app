@@ -101,14 +101,15 @@ module App =
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
-            if model.ApplicationSettings |> areSet then
-                let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
+            match model.ApplicationSettings.CommunityName, model.ApplicationSettings.PlayerName with
+            | Some(_), Some(playerName) ->
+                let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg playerName
                 match opponentListOutMsg with
                 | Some (OpponentList.PlayerSelectedOutMsg selectedOpponentName) ->
                     model |> pushPage (AddResult selectedOpponentName), opponentListCmdMsgs |> List.map OpponentListCmdMsg
                 | None ->
                     { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
-            else
+            | _ ->
                 model, []
 
         | AddResultMsg addResultMsg ->
@@ -142,7 +143,7 @@ module App =
             match settingsMsg with
             | Settings.SettingsSaved newSettings ->
                 // Refetch the players
-                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg newSettings.CommunityName |> OpponentListCmdMsg
+                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (newSettings.CommunityName, newSettings.PlayerName) |> OpponentListCmdMsg
                 let newCmdMsgs = appCmdMsgsFromSettings @ [opponentListCmdMsg]
 
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
