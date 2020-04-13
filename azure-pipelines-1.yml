@@ -33,6 +33,11 @@ steps:
     outputDirectory: '$(outputDirectory)'
     configuration: '$(buildConfiguration)'
 
+- task: CopyFiles@2
+  inputs:
+    contents: '$(outputDirectory)/**'
+    targetFolder: $(Build.ArtifactStagingDirectory)
+
 - script: dotnet test src/**/*.Tests.*.fsproj --logger trx
 - task: PublishTestResults@2
   condition: succeededOrFailed()
