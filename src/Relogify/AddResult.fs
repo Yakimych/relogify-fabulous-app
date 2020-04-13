@@ -149,10 +149,10 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
     View.ContentPage(
         title = "Add Result",
         content =
-            View.StackLayout(
-                orientation = StackOrientation.Vertical,
+            View.Grid(
                 padding = Thickness(15.0),
                 margin = Thickness(15.0),
+                rowdefs = [Star; Auto; Auto; Auto],
                 children = [
                     View.Grid(
                          coldefs = [ Star; Star ],
@@ -177,7 +177,7 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                              (pointSelector model.resultModel.OwnPoints (dispatch << SetOwnPoints)).Column(0).Row(2)
                              (pointSelector model.resultModel.OpponentPoints (dispatch << SetOpponentPoints)).Column(1).Row(2)
                          ]
-                    )
+                    ).Row(0)
 
                     View.StackLayout(
                         orientation = StackOrientation.Horizontal,
@@ -190,19 +190,19 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                 checkedChanged = (fun _ -> dispatch ToggleExtraTime)
                             )
                         ]
-                    )
+                    ).Row(1)
 
                     View.StackLayout(
-                        height = 120.0,
+                        height = 60.0,
                         children = [
                             View.Grid(
-                                height = 120.0,
+                                height = 60.0,
                                 children = [
                                     View.Button(
                                         text = "Add Result",
                                         backgroundColor = Color.Orange,
                                         textColor = Color.DarkBlue,
-                                        height = 120.0,
+                                        height = 60.0,
                                         command = (fun _ -> dispatch AddResultInitiated),
                                         commandCanExecute = not isAddingResult
                                     )
@@ -215,9 +215,9 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                 ]
                             )
                         ]
-                    )
+                    ).Row(2)
 
-                    View.Label(text = getErrorMessage model, textColor = Color.Red)
+                    View.Label(text = getErrorMessage model, textColor = Color.Red).Row(3)
                 ]
             )
     )
