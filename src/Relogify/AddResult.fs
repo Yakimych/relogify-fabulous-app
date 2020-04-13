@@ -192,27 +192,22 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                         ]
                     ).Row(1)
 
-                    View.StackLayout(
+                    View.Grid(
                         height = 60.0,
                         children = [
-                            View.Grid(
+                            View.Button(
+                                text = "Add Result",
+                                backgroundColor = Color.Orange,
+                                textColor = Color.DarkBlue,
                                 height = 60.0,
-                                children = [
-                                    View.Button(
-                                        text = "Add Result",
-                                        backgroundColor = Color.Orange,
-                                        textColor = Color.DarkBlue,
-                                        height = 60.0,
-                                        command = (fun _ -> dispatch AddResultInitiated),
-                                        commandCanExecute = not isAddingResult
-                                    )
-                                    View.ActivityIndicator(
-                                       horizontalOptions = LayoutOptions.End,
-                                       margin = Thickness(0.0, 0.0, 40.0, 0.0),
-                                       isVisible = isAddingResult,
-                                       isRunning = isAddingResult
-                                    )
-                                ]
+                                command = (fun _ -> dispatch AddResultInitiated),
+                                commandCanExecute = not isAddingResult
+                            )
+                            View.ActivityIndicator(
+                               horizontalOptions = LayoutOptions.End,
+                               margin = Thickness(0.0, 0.0, 40.0, 0.0),
+                               isVisible = isAddingResult,
+                               isRunning = isAddingResult
                             )
                         ]
                     ).Row(2)
