@@ -159,8 +159,8 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                          coldefs = [ Star; Star ],
                          rowdefs = [ Auto; Auto; Star ],
                          children = [
-                             View.Label(text = ownName, fontSize = FontSize.Named(NamedSize.Small)).Column(0).Row(0)
-                             View.Label(text = opponentName, fontSize = FontSize.Named(NamedSize.Small)).Column(1).Row(0)
+                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = ownName, fontSize = FontSize.Named(NamedSize.Large)).Column(0).Row(0)
+                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.Named(NamedSize.Large)).Column(1).Row(0)
 
                              View.Entry(
                                  isEnabled = not isAddingResult,

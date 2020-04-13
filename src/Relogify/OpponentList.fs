@@ -64,6 +64,7 @@ let update model msg: Model * CmdMsg list * OutMsg option =
 
 let view (model: Model) (dispatch: Msg -> unit): ViewElement =
     View.ContentPage(
+        title = "Players",
         icon = Image.Path "tab_feed.png",
         content =
             match model with
