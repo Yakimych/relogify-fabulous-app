@@ -3,7 +3,7 @@
 A Mobile app used to manage communities and report results to [Relogify](https://relogify.com).
 
 Supported features:
-- Add your player and community (support for multiple communities coming soon in https://github.com/Yakimych/relogify-fabulous-app/issues/22)
+- Add your player and community (support for multiple communities [coming soon](https://github.com/Yakimych/relogify-fabulous-app/issues/22))
 - Browse players in the community
 - Add a match result against another player
 - Match timer (can be used in e.g. table hockey) with support for extra time
