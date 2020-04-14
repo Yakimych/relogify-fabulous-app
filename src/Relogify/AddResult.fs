@@ -46,20 +46,25 @@ type AddResultModel =
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
 
-let rand = Random()
-
 let addResultCmd (resultModel: AddResultModel) =
     async {
-        // replace getPlayersOperation with addResultOperation
-        do! Async.Sleep 1000
-        let! result = getPlayersOperation.AsyncRun(runtimeContext, resultModel.OpponentName) // TODO: Send in the real data
+        let currentDateString = DateTime.UtcNow.ToString("o")
+
+        let! result =
+            addResultOperation.AsyncRun(
+                runtimeContext,
+                resultModel.CommunityName,
+                resultModel.PlayerName,
+                resultModel.OpponentName,
+                currentDateString,
+                resultModel.PlayerPoints,
+                resultModel.OpponentPoints,
+                resultModel.ExtraTime
+            )
+
         return
-            match result.Data with // TODO: result.Errors
-            | Some _ -> // ResultAddedSuccess // TODO: Uncomment this and remove the randomness
-                if rand.Next(2) = 0 then
-                    ResultAddedError "Failed to add result, please check your internet connection and try again"
-                else
-                    ResultAddedSuccess
+            match result.Data with
+            | Some _ -> ResultAddedSuccess
             | None -> ResultAddedError "Failed to add result, please check your internet connection and try again"
     }
     |> Cmd.ofAsyncMsg
