@@ -1,6 +1,5 @@
 module Relogify.ApplicationSettings
 
-open System
 open Xamarin.Forms
 open Newtonsoft.Json
 
@@ -21,19 +20,13 @@ let getApplicationSettingsOrNone key =
     with ex ->
         None
 
-let getApplicationSettings(): ApplicationSettings =
+let getApplicationSettings (): ApplicationSettings =
     getApplicationSettingsOrNone ApplicationSettinsStorageKey |>
         Option.defaultValue { Communities = [] }
 
-let saveApplicationSettings (communityName: string) (playerName: string) =
-    match communityName, playerName with 
-    | cn, pn when not (String.IsNullOrEmpty(cn)) && not (String.IsNullOrEmpty(pn)) ->
-        let communities = [{ CommunityName = cn ; PlayerName = pn}]
-
-        let json = JsonConvert.SerializeObject({ Communities = communities })
-
-        Application.Current.Properties.[ApplicationSettinsStorageKey] <- json
-    | _ -> ignore ()
+let saveApplicationSettings (appSettings : ApplicationSettings) =
+    let json = JsonConvert.SerializeObject(appSettings)
+    Application.Current.Properties.[ApplicationSettinsStorageKey] <- json
 
     Application.Current.SavePropertiesAsync()
 

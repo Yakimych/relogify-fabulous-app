@@ -141,13 +141,15 @@ module App =
             let appCmdMsgsFromSettings = settingsCmdMsgs |> List.map SettingsCmdMsg
 
             match settingsMsg with
-            | Settings.SettingsSaved newSettings ->
-                // Refetch the players
-                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (newSettings.CommunityName, newSettings.PlayerName) |> OpponentListCmdMsg
+            | Settings.SettingsSaved newSettings -> { updatedModel with ApplicationSettings = newSettings }, []
+            | Settings.SelectCommunity community ->
+                 // Refetch the players
+                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (community.CommunityName, community.PlayerName) |> OpponentListCmdMsg
                 let newCmdMsgs = appCmdMsgsFromSettings @ [opponentListCmdMsg]
 
-                { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
+                model, newCmdMsgs
             | _ -> updatedModel, appCmdMsgsFromSettings
+            
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
         | PushPage page -> model |> pushPage page, []
         | PopPage -> model |> popPage, []
@@ -170,7 +172,6 @@ module App =
             let currentPlayerOrEmpty = getSelectedCommunity model.ApplicationSettings 
                                         |> Option.map (fun community -> community.PlayerName)
                                         |> Option.defaultValue ""
-                                        
             (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
                 .ToolbarItems([ View.ToolbarItem( text = "Timer", command = (fun () -> dispatch <| PushPage Timer)) ])
         | Timer ->
@@ -180,7 +181,6 @@ module App =
         let pagesInTheStack: ViewElement seq =
             model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
 
-        let selectedCommunity = getSelectedCommunity model.ApplicationSettings
         let communities = (getApplicationSettings ()).Communities
 
         View.NavigationPage(
@@ -188,7 +188,7 @@ module App =
             barBackgroundColor = navigationPrimaryColor,
             barTextColor = Color.White,
             popped = (fun _ -> dispatch PopPage),
-
+            
             pages = [
                 yield View.TabbedPage(
                     currentPageChanged = (fun maybeIndex ->

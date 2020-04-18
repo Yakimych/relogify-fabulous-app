@@ -26,18 +26,14 @@ type Msg =
     | FetchingPlayersError of errorMessage: string
     | BackToEditCommunity
     | SelectPlayer of selectedPlayer: string
-    | SaveSettings
-    | SettingsSaved of Community
+    | SaveCommunity
+    | SelectCommunity of community: Community
+    | SettingsSaved of ApplicationSettings
     | CancelDialog
 
 type CmdMsg =
     | FetchPlayersCmdMsg of communityName: string
     | SaveSettingsCmdMsg of Community
-
-let toApplicationSettings (settings: Community): ApplicationSettings =
-    { Communities =
-          [ { CommunityName = settings.CommunityName
-              PlayerName = settings.PlayerName } ] }
 
 let performTransition (state: DialogState) (transition: Msg): DialogState * CmdMsg list =
     match (state, transition) with
@@ -69,7 +65,7 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
         ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer }), []
     | (ChoosingPlayer (_, _), CancelDialog) ->
         Closed, []
-    | (ChoosingPlayer (_, settingsUnderEdit), SaveSettings) ->
+    | (ChoosingPlayer (_, settingsUnderEdit), SaveCommunity) ->
         Closed, [SaveSettingsCmdMsg settingsUnderEdit]
 
     | (currentState, _disallowedTransition) -> currentState, []
@@ -90,10 +86,22 @@ let fetchPlayersCmd (communityName: string) =
     }
     |> Cmd.ofAsyncMsg
 
-let saveSettingsCmd (settings: Community) =
+let communitiesMatch (community : Community) (communityToCheck : Community) = 
+    communityToCheck.CommunityName = community.CommunityName
+
+let saveCommunity (communityToSave : Community) (communities : Community list) : Community list =
+    match communities |> List.exists (communitiesMatch communityToSave) with
+    | false -> communities @ [communityToSave]
+    | true -> communities |> List.map (fun community ->
+        if communitiesMatch community communityToSave then communityToSave else community
+    )
+
+let saveSettingsCmd (community: Community) =
     async {
-        do! ApplicationSettings.saveApplicationSettings settings.CommunityName settings.PlayerName |> Async.AwaitTask
-        return SettingsSaved settings
+        let communities = (getApplicationSettings ()).Communities |> saveCommunity community
+        // TODO: set selected community
+        do! saveApplicationSettings { Communities = communities } |> Async.AwaitTask
+        return getApplicationSettings () |> SettingsSaved
     }
     |> Cmd.ofAsyncMsg
 
@@ -259,7 +267,7 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
                                                  View.Button(
                                                      text = "Save",
                                                      backgroundColor = Color.LightGreen,
-                                                     command = (fun _ -> dispatch SaveSettings),
+                                                     command = (fun _ -> dispatch SaveCommunity),
                                                      commandCanExecute = (not <| String.IsNullOrEmpty(newSettings.PlayerName))
                                                  ).Column(1)
                                              ]
@@ -313,6 +321,7 @@ let view (model: Model) (communities: Community list) dispatch =
                          (children =
                              [ View.ListView(
                                 items = (communities |> List.map (viewCommunityListItem dispatch)),
+                                itemTapped = (fun index -> communities |> List.item index |> SelectCommunity |> dispatch),
                                 hasUnevenRows = true
                                )
                                View.Button(
