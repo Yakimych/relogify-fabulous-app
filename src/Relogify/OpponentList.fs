@@ -4,70 +4,93 @@ open Fabulous
 open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
 open Relogify.Graphql
+open Xamarin.Forms
 
-type FetchPlayersState =
-    | NotAsked
-    | Fetching of communityName: string
-    | Fetched of playerNames: string list
-
-// TODO: Do we need a record here?
 type Model =
-     { FetchPlayersState: FetchPlayersState }
+    | Fetching of communityName: string
+    | FetchSuccess of playerNames: string list
+    | FetchError of communityName: string * errorMessage: string
 
 type Msg =
+    | FetchPlayers of string
     | PlayersFetched of string list
-    | FetchPlayerError of string
+    | FetchPlayersError of communityName: string * errorMessage: string
     | PlayerSelected of int option
 
-type CmdMsg = FetchPlayersCmdMsg of communityName: string
+type CmdMsg =
+    | FetchPlayersCmdMsg of communityName: string * currentPlayerName: string
+    | DeselectPlayerCmdMsg
 
 type OutMsg =
     | PlayerSelectedOutMsg of player: string
 
-let initModel (communityName: string): Model * CmdMsg list =
-    let cmdMsgs =
-        match communityName with
-        | "" -> []
-        | name -> [FetchPlayersCmdMsg name]
+let initModel (community : Community option): Model * CmdMsg list =
+    match community with
+    | Some({CommunityName = communityName; PlayerName = currentPlayerName}) -> Fetching communityName, [FetchPlayersCmdMsg (communityName, currentPlayerName)]
+    | _ -> FetchError ("", "Application settings are empty"), []
 
-    { FetchPlayersState = NotAsked }, cmdMsgs
-
-let fetchPlayersCmd (communityName: string) =
+let fetchPlayersCmd (communityName: string) (currentPlayerName: string) =
     async {
         let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
         return
             match result.Data with
-            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> PlayersFetched
-            | None -> FetchPlayerError "Error fetching players" // TODO: Handle errors correctly
+            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> List.except [currentPlayerName] |> PlayersFetched
+            | None -> FetchPlayersError (communityName, sprintf "Error fetching players for community '%s'. Please check your internet connection and try again. If the problem persists, check your settings and restart the app" communityName)
     }
     |> Cmd.ofAsyncMsg
 
-let mapCommands =
-    function
-    | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
+let listViewRef = ViewRef<CustomListView>()
 
-let update model msg: Model * CmdMsg list * OutMsg option =
+let deselectPlayer () =
+    listViewRef.TryValue |> Option.iter (fun listView -> listView.SelectedItem <- null)
+    Cmd.none
+
+let mapCommands: (CmdMsg -> Cmd<Msg>) =
+    function
+    | FetchPlayersCmdMsg (communityName, currentPlayerName) -> fetchPlayersCmd communityName currentPlayerName
+    | DeselectPlayerCmdMsg -> deselectPlayer ()
+
+let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg list * OutMsg option =
     match msg with
-    | PlayersFetched players -> { model with FetchPlayersState = Fetched players }, [], None
-    | FetchPlayerError errorMessage -> model, [], None // TODO: Handle errors correctly
+    | FetchPlayers communityName -> Fetching communityName, [FetchPlayersCmdMsg (communityName, currentPlayerName)], None
+    | PlayersFetched players -> FetchSuccess players, [], None
+    | FetchPlayersError (communityName, errorMessage) -> FetchError (communityName, errorMessage), [], None
     | PlayerSelected maybeIndex ->
-        match maybeIndex, model.FetchPlayersState with
-        | Some index, Fetched players ->
+        match maybeIndex, model with
+        | Some index, FetchSuccess players ->
             let selectedPlayer = players.[index]
-            model, [], Some <| PlayerSelectedOutMsg selectedPlayer
+            model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg selectedPlayer
         | _ -> model, [], None
 
-let view (model: Model) (playerName: string) (communityName: string) dispatch =
+let view (model: Model) (dispatch: Msg -> unit): ViewElement =
     View.ContentPage(
-        title = "Play",
+        title = "Players",
         icon = Image.Path "tab_feed.png",
         content =
-            match model.FetchPlayersState with
-            | NotAsked -> View.Label(text = "Not asked")
-            | Fetching communityName -> View.Label(sprintf "Fetching players in community: %s" communityName)
-            | Fetched players ->
+            match model with
+            | Fetching _ -> View.ActivityIndicator(isRunning = true)
+            | FetchError (communityName, errorMessage) ->
+                View.StackLayout(
+                    orientation = StackOrientation.Vertical,
+                    children = [
+                        View.Label(
+                            text = errorMessage,
+                            horizontalOptions = LayoutOptions.Center,
+                            verticalOptions = LayoutOptions.Center,
+                            margin = Thickness(20.0),
+                            textColor = Color.Red
+                        )
+                        View.Button(
+                            text = "Try again",
+                            command = (fun _ -> dispatch <| FetchPlayers communityName)
+                        )
+                    ]
+                )
+            | FetchSuccess players ->
                 View.ListView(
-                    items = (players |> List.map (fun playerName -> View.TextCell playerName)),
-                    itemSelected = (fun index -> dispatch (PlayerSelected index))
+                    ref = listViewRef,
+                    isPullToRefreshEnabled = false,
+                    items = (players |> List.map (fun playerName -> View.TextCell(text = playerName))),
+                    itemSelected = (dispatch << PlayerSelected)
                 )
     )

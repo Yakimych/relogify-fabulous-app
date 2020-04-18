@@ -46,20 +46,25 @@ type AddResultModel =
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
 
-let rand = Random()
-
 let addResultCmd (resultModel: AddResultModel) =
     async {
-        // replace getPlayersOperation with addResultOperation
-        do! Async.Sleep 1000
-        let! result = getPlayersOperation.AsyncRun(runtimeContext, resultModel.OpponentName) // TODO: Send in the real data
+        let currentDateString = DateTime.UtcNow.ToString("o")
+
+        let! result =
+            addResultOperation.AsyncRun(
+                runtimeContext,
+                resultModel.CommunityName,
+                resultModel.PlayerName,
+                resultModel.OpponentName,
+                currentDateString,
+                resultModel.PlayerPoints,
+                resultModel.OpponentPoints,
+                resultModel.ExtraTime
+            )
+
         return
-            match result.Data with // TODO: result.Errors
-            | Some _ -> // ResultAddedSuccess // TODO: Uncomment this and remove the randomness
-                if rand.Next(2) = 0 then
-                    ResultAddedError "Failed to add result, please check your internet connection and try again"
-                else
-                    ResultAddedSuccess
+            match result.Data with
+            | Some _ -> ResultAddedSuccess
             | None -> ResultAddedError "Failed to add result, please check your internet connection and try again"
     }
     |> Cmd.ofAsyncMsg
@@ -111,72 +116,108 @@ let getErrorMessage (model: Model): string =
     | ErrorAddingResult errorMessage -> errorMessage
     | _ -> ""
 
+let getIntValueOrZero (stringValue: string): int =
+    let succeeded, intValue = Int32.TryParse(stringValue)
+    if succeeded then intValue else 0
+
+let maxSelectablePoints = 100
+
+let applyBaseButtonStyle (button: ViewElement) =
+    button
+        .ButtonCornerRadius(10)
+        .BorderWidth(2.0)
+        .BorderColor(Color.Black)
+        .FontSize(Named(NamedSize.Large))
+
+let pointSelector (selectedNumberOfPoints: int) setPoints =
+    View.ScrollView(
+        content =
+            View.StackLayout(
+                orientation = StackOrientation.Vertical,
+                children = (
+                    [0 .. maxSelectablePoints]
+                    |> List.map (fun i ->
+                        View.Button(
+                            text = i.ToString(),
+                            backgroundColor = (if i = selectedNumberOfPoints then Color.LightGreen else Color.LightGray),
+                            textColor = Color.Black,
+                            margin = Thickness(15.0, 5.0, 15.0, 0.0),
+                            command = (fun _ -> setPoints i)
+                        ) |> applyBaseButtonStyle
+                    )
+                )
+            )
+    )
+
 let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) =
     let isAddingResult = model.state |> isAddingResult
 
     View.ContentPage(
         title = "Add Result",
-        content = View.CollectionView(
-            items = [
-                View.StackLayout(
-                    orientation = StackOrientation.Vertical,
-                    padding = Thickness(15.0),
-                    margin = Thickness(15.0),
-                    children = [
-                        View.Grid(
-                             coldefs = [ Star; Star ],
-                             rowdefs = [ Auto; Auto; Star ],
-                             children = [
-                                 View.Label(text = ownName, fontSize = FontSize.Named(NamedSize.Small)).Column(0).Row(0)
-                                 View.Label(text = opponentName, fontSize = FontSize.Named(NamedSize.Small)).Column(1).Row(0)
+        content =
+            View.Grid(
+                padding = Thickness(15.0),
+                margin = Thickness(15.0),
+                rowdefs = [Star; Auto; Auto; Auto],
+                children = [
+                    View.Grid(
+                         coldefs = [ Star; Star ],
+                         rowdefs = [ Auto; Auto; Star ],
+                         children = [
+                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = ownName, fontSize = FontSize.Named(NamedSize.Large)).Column(0).Row(0)
+                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.Named(NamedSize.Large)).Column(1).Row(0)
 
-                                 View.Picker(
-                                     isEnabled = not isAddingResult,
-                                     items = ([1 .. 10] |> List.map(fun i -> i.ToString())),
-                                     selectedIndexChanged = (fun (index,  _) -> dispatch (SetOwnPoints index)), // TODO: Use the value rather than the index
-                                     selectedIndex = model.resultModel.OwnPoints // TODO: "Bind" to the value rather than the index
-                                 ).Column(0).Row(1)
-                                 View.Picker(
-                                     isEnabled = not isAddingResult,
-                                     items = ([1 .. 10] |> List.map(fun i -> i.ToString())),
-                                     selectedIndexChanged = (fun (index,  _) -> dispatch (SetOpponentPoints index)), // TODO: Use the value rather than the index
-                                     selectedIndex = model.resultModel.OpponentPoints // TODO: "Bind" to the value rather than the index
-                                 ).Column(1).Row(1)
-                             ]
-                        )
+                             View.Entry(
+                                 isEnabled = not isAddingResult,
+                                 keyboard = Keyboard.Numeric,
+                                 text = model.resultModel.OwnPoints.ToString(),
+                                 textChanged = (fun args -> dispatch <| SetOwnPoints (getIntValueOrZero args.NewTextValue))
+                             ).Column(0).Row(1)
+                             View.Entry(
+                                 isEnabled = not isAddingResult,
+                                 keyboard = Keyboard.Numeric,
+                                 text = model.resultModel.OpponentPoints.ToString(),
+                                 textChanged = (fun args -> dispatch <| SetOpponentPoints (getIntValueOrZero args.NewTextValue))
+                             ).Column(1).Row(1)
 
-                        View.StackLayout(
-                            orientation = StackOrientation.Horizontal,
-                            children = [
-                                View.Label(text = "Extra time", verticalTextAlignment = TextAlignment.Center)
-                                View.CheckBox(
-                                    isEnabled = not isAddingResult,
-                                    margin = Thickness(0.0),
-                                    isChecked = model.resultModel.ExtraTime,
-                                    checkedChanged = (fun _ -> dispatch ToggleExtraTime)
-                                )
-                            ]
-                        )
+                             (pointSelector model.resultModel.OwnPoints (dispatch << SetOwnPoints)).Column(0).Row(2)
+                             (pointSelector model.resultModel.OpponentPoints (dispatch << SetOpponentPoints)).Column(1).Row(2)
+                         ]
+                    ).Row(0)
 
-                        View.Grid(children = [
+                    View.StackLayout(
+                        orientation = StackOrientation.Horizontal,
+                        children = [
+                            View.Label(text = "Extra time", verticalTextAlignment = TextAlignment.Center)
+                            View.CheckBox(
+                                isEnabled = not isAddingResult,
+                                margin = Thickness(0.0),
+                                isChecked = model.resultModel.ExtraTime,
+                                checkedChanged = (fun _ -> dispatch ToggleExtraTime)
+                            )
+                        ]
+                    ).Row(1)
+
+                    View.Grid(
+                        children = [
                             View.Button(
                                 text = "Add Result",
                                 backgroundColor = Color.Orange,
                                 textColor = Color.DarkBlue,
+                                height = 60.0,
                                 command = (fun _ -> dispatch AddResultInitiated),
                                 commandCanExecute = not isAddingResult
-                            )
+                            ) |> applyBaseButtonStyle
                             View.ActivityIndicator(
                                horizontalOptions = LayoutOptions.End,
                                margin = Thickness(0.0, 0.0, 40.0, 0.0),
                                isVisible = isAddingResult,
                                isRunning = isAddingResult
                             )
-                        ])
+                        ]
+                    ).Row(2)
 
-                        View.Label(text = getErrorMessage model, textColor = Color.Red)
-                    ]
-                )
-            ]
-        )
+                    View.Label(text = getErrorMessage model, textColor = Color.Red).Row(3)
+                ]
+            )
     )

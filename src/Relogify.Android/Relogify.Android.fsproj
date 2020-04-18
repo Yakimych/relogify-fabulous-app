@@ -200,10 +200,10 @@
       <HintPath>..\packages\FParsec.1.0.3\lib\netstandard1.6\FParsecCS.dll</HintPath>
     </Reference>
     <Reference Include="FSharp.Data.GraphQL.Client">
-      <HintPath>..\packages\FSharp.Data.GraphQL.Client.1.0.3\lib\netstandard2.0\FSharp.Data.GraphQL.Client.dll</HintPath>
+      <HintPath>..\packages\FSharp.Data.GraphQL.Client.1.0.5\lib\netstandard2.0\FSharp.Data.GraphQL.Client.dll</HintPath>
     </Reference>
     <Reference Include="FSharp.Data.GraphQL.Shared">
-      <HintPath>..\packages\FSharp.Data.GraphQL.Client.1.0.3\lib\netstandard2.0\FSharp.Data.GraphQL.Shared.dll</HintPath>
+      <HintPath>..\packages\FSharp.Data.GraphQL.Client.1.0.5\lib\netstandard2.0\FSharp.Data.GraphQL.Shared.dll</HintPath>
     </Reference>
     <Reference Include="Java.Interop" />
     <Reference Include="Microsoft.CSharp" />

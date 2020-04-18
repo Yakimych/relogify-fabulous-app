@@ -36,13 +36,23 @@ module App =
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
         | TimerCmdMsg of Timer.CmdMsg
+        | PopLastPageCmdMsg
 
-    let mapCommands cmdMsg =
+    let navigationPageRef = ViewRef<NavigationPage>()
+
+    let forcePopLastPage () =
+        navigationPageRef.TryValue
+        |> Option.iter (fun navigationPage -> navigationPage.PopAsync() |> Async.AwaitTask |> Async.Ignore |> Async.StartImmediate)
+
+        Cmd.none
+
+    let mapCommands (cmdMsg: CmdMsg): Cmd<Msg> =
         match cmdMsg with
         | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
         | TimerCmdMsg x -> Timer.mapCommands x |> Cmd.map TimerMsg
+        | PopLastPageCmdMsg -> forcePopLastPage ()
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -57,22 +67,11 @@ module App =
         |> List.choose getPlayerNameIfAddingResult
         |> List.tryHead
 
-    // TODO: save selected community in settings
-    let getSelectedCommunity () = 
-        let applicationSettings = getApplicationSettings ()
-        applicationSettings.Communities 
-        |> List.tryHead 
-
-    let getSelectedCommunityOrDefault () =
-        getSelectedCommunity() 
-        |> Option.defaultWith (fun _ -> { CommunityName = ""; PlayerName = "" })
-
     let init () =
-        let selectedCommunity = getSelectedCommunityOrDefault ()
+        let applicationSettings = getApplicationSettings ()
 
-        let opponentListModel, opponentListCmdMsgs = OpponentList.initModel selectedCommunity.CommunityName
+        let opponentListModel, opponentListCmdMsgs = getSelectedCommunity applicationSettings |> OpponentList.initModel
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
-        let applicationSettings = ApplicationSettings.getApplicationSettings ()
 
         { PageStack = []
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
@@ -95,49 +94,37 @@ module App =
             | Timer -> { newModel with TimerModel = Timer.initModel }
             | AddResult _ -> { newModel with AddResultModel = AddResult.initModel }
 
-    let navigationPageRef = ViewRef<NavigationPage>()
-
-    let forcePopLastPage () =
-        match navigationPageRef.TryValue with
-        | None -> ()
-        | Some navigationPage -> async { do! navigationPage.PopAsync() |> Async.AwaitTask |> Async.Ignore } |> Async.StartImmediate
+    let addResultPageShouldBePopped (addResultMsg: AddResult.Msg): bool =
+        match addResultMsg with
+        | AddResult.ResultAddedSuccess -> true
+        | _ -> false
 
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
-            if model.ApplicationSettings |> areSet then
-                let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
+            match getSelectedCommunity model.ApplicationSettings with
+            | Some({PlayerName = playerName}) -> 
+                let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg playerName
                 match opponentListOutMsg with
                 | Some (OpponentList.PlayerSelectedOutMsg selectedOpponentName) ->
                     model |> pushPage (AddResult selectedOpponentName), opponentListCmdMsgs |> List.map OpponentListCmdMsg
                 | None ->
                     { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
-            else
+            | _ ->
                 model, []
 
         | AddResultMsg addResultMsg ->
             // TODO: Refactor/decouple the logic
             let maybeOpponentName = model |> isAddingResultFor
-            let updatedModel =
-                match addResultMsg with
-                // TODO: Should this be an OutCmd?
-                | AddResult.ResultAddedSuccess ->
-                    do forcePopLastPage () // TODO: Should this be a command?
-                    { model with AddResultModel = AddResult.initModel } // TODO: Remove this, since the AddResultModel is already reset in the popPage function
-                | _ -> model
-
-            let selectedCommunity = getSelectedCommunityOrDefault ()
-            match  maybeOpponentName with
-            | Some opponentName ->
-                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg selectedCommunity.CommunityName selectedCommunity.PlayerName opponentName
-                { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
-            | _ -> updatedModel, []
+            match  maybeOpponentName, getSelectedCommunity model.ApplicationSettings with
+            | Some opponentName, Some community ->
+                let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg community.CommunityName community.PlayerName opponentName
+                { model with AddResultModel = addResultModel }, (addResultCmdMsgs |> List.map AddResultCmdMsg) @ [if addResultPageShouldBePopped addResultMsg then yield PopLastPageCmdMsg]
+            | _ -> model, []
         | TimerMsg timerMsg ->
             let timerModel, timerCmdMsgs, timerOutMsg = Timer.update model.TimerModel timerMsg
             match timerOutMsg with
             | Some (Timer.OutMsg.TimerExpiredOutMsg timerWasRunInExtraTime) ->
-                do forcePopLastPage () // TODO: Should this be a command?
-
                 let updatedResultModel = { model.AddResultModel.resultModel with ExtraTime = timerWasRunInExtraTime }
                 let updatedAddResultModel = { model.AddResultModel with resultModel = updatedResultModel }
                 let updatedModel =
@@ -145,7 +132,7 @@ module App =
                           TimerModel = Timer.initModel
                           AddResultModel = updatedAddResultModel }
 
-                updatedModel, timerCmdMsgs |> List.map TimerCmdMsg
+                updatedModel, (timerCmdMsgs |> List.map TimerCmdMsg) @ [PopLastPageCmdMsg]
             | _ ->
                 { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
         | SettingsMsg settingsMsg ->
@@ -156,14 +143,14 @@ module App =
             match settingsMsg with
             | Settings.SettingsSaved newSettings ->
                 // Refetch the players
-                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg newSettings.CommunityName |> OpponentListCmdMsg
+                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (newSettings.CommunityName, newSettings.PlayerName) |> OpponentListCmdMsg
                 let newCmdMsgs = appCmdMsgsFromSettings @ [opponentListCmdMsg]
 
                 { updatedModel with ApplicationSettings = newSettings |> Settings.toApplicationSettings }, newCmdMsgs
             | _ -> updatedModel, appCmdMsgsFromSettings
         | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
         | PushPage page -> model |> pushPage page, []
-        | PopPage -> model |> popPage, [] // TODO: Check whether we're on the HomePage
+        | PopPage -> model |> popPage, []
         | PopBackToHome -> { model with PageStack = [] }, []
 
     let navigationPrimaryColor = Color.FromHex("#2196F3")
@@ -172,8 +159,7 @@ module App =
         match tabIndex with
         | 0 -> "Select Opponent"
         | 1 -> "Settings"
-        | 2 -> "Report result" // TODO: Remove
-        | 3 -> "About"
+        | 2 -> "About"
         | _ -> failwith (sprintf "No tab with index %d" tabIndex)
 
     let timerIsShown (model: Model) = model.PageStack |> List.contains Timer
@@ -181,7 +167,10 @@ module App =
     let renderPage (model: Model) dispatch (page: Page) =
         match page with
         | AddResult playerNameToAddResultFor ->
-            let currentPlayerOrEmpty = getSelectedCommunityOrDefault().PlayerName
+            let currentPlayerOrEmpty = getSelectedCommunity model.ApplicationSettings 
+                                        |> Option.map (fun community -> community.PlayerName)
+                                        |> Option.defaultValue ""
+                                        
             (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
                 .ToolbarItems([ View.ToolbarItem( text = "Timer", command = (fun () -> dispatch <| PushPage Timer)) ])
         | Timer ->
@@ -191,7 +180,7 @@ module App =
         let pagesInTheStack: ViewElement seq =
             model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
 
-        let selectedCommunity = getSelectedCommunity()
+        let selectedCommunity = getSelectedCommunity model.ApplicationSettings
         let communities = (getApplicationSettings ()).Communities
 
         View.NavigationPage(
@@ -213,11 +202,7 @@ module App =
                     selectedTabColor = Color.White,
                     barTextColor = Color.White,
                     children = [
-                        yield!
-                            match selectedCommunity with
-                            | Some {PlayerName=playerName; CommunityName=communityName} ->
-                                [OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)]
-                            | _ -> []
+                        yield OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
 
                         yield (Settings.view
                             model.SettingsModel

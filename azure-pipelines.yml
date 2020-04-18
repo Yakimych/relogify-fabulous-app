@@ -18,6 +18,12 @@ steps:
   displayName: 'Select the Xamarin SDK version'
   enabled: false
 
+- task: FileTransform@2
+  inputs:
+    folderPath: '$(System.DefaultWorkingDirectory)/src/Relogify/'
+    jsonTargetFiles: 'appsettings.json'
+    xmlTransformationRules: '' # disabled
+
 - task: NuGetToolInstaller@1
 
 - task: NuGetCommand@2
@@ -30,3 +36,10 @@ steps:
     configuration: 'Release'
     buildForSimulator: true
     packageApp: false
+
+- script: dotnet test src/**/*.Tests.*.fsproj --logger trx
+- task: PublishTestResults@2
+  condition: succeededOrFailed()
+  inputs:
+    testRunner: VSTest
+    testResultsFiles: '**/*.trx'

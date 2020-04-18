@@ -39,3 +39,6 @@ let saveApplicationSettings (communityName: string) (playerName: string) =
 
 let areSet (applicationSettings: ApplicationSettings) =
     applicationSettings.Communities |> List.isEmpty |> not 
+
+let getSelectedCommunity (settings : ApplicationSettings) =
+    settings.Communities |> List.tryHead 

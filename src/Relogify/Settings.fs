@@ -3,6 +3,7 @@ module Relogify.Settings
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify
+open Relogify.Graphql
 open Relogify.ApplicationSettings
 open Xamarin.Forms
 open System
@@ -30,7 +31,7 @@ type Msg =
     | CancelDialog
 
 type CmdMsg =
-    | FetchPlayersCmdMsg
+    | FetchPlayersCmdMsg of communityName: string
     | SaveSettingsCmdMsg of Community
 
 let toApplicationSettings (settings: Community): ApplicationSettings =
@@ -46,7 +47,7 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
     | (EditingCommunityName _, SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
     | (EditingCommunityName communityName, StartFetchingPlayers) when communityName |> isNotEmpty ->
-        FetchingPlayers communityName, [FetchPlayersCmdMsg]
+        FetchingPlayers communityName, [FetchPlayersCmdMsg communityName]
     | (EditingCommunityName (_), CancelDialog) ->
         Closed, []
 
@@ -58,7 +59,7 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
     | (FailedFetchingPlayers (_, _), SetCommunityName newCommunityName) ->
         EditingCommunityName newCommunityName, []
     | (FailedFetchingPlayers (communityName, _), StartFetchingPlayers) ->
-        FetchingPlayers communityName, [FetchPlayersCmdMsg]
+        FetchingPlayers communityName, [FetchPlayersCmdMsg communityName]
     | (FailedFetchingPlayers (_, _), CancelDialog) ->
         Closed, []
 
@@ -79,15 +80,13 @@ let initModel (communityNameHasBeenSaved: bool) =
     else
         { DialogState = EditingCommunityName "" }
 
-let rand = Random()
-let fetchPlayersCmd () =
+let fetchPlayersCmd (communityName: string) =
     async {
-        do! Async.Sleep 200
-
-        if rand.Next(2) = 0 then
-            return FetchingPlayersError "Failed to fetch, please check your internet connection and try again"
-        else
-            return FetchingPlayersSuccess ([1 .. 20] |> List.map (sprintf "player%d"))
+        let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
+        return
+            match result.Data with
+            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> FetchingPlayersSuccess
+            | None -> FetchingPlayersError (sprintf "Failed to fetch players for community '%s'. Please check your internet connection and try again." communityName)
     }
     |> Cmd.ofAsyncMsg
 
@@ -100,10 +99,10 @@ let saveSettingsCmd (settings: Community) =
 
 let mapCommands =
     function
-    | FetchPlayersCmdMsg -> fetchPlayersCmd()
+    | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
     | SaveSettingsCmdMsg settings -> saveSettingsCmd settings
 
-let update model msg: Model * CmdMsg list =
+let update (model: Model) (msg: Msg): Model * CmdMsg list =
     let newDialogState, cmdMsgList = performTransition model.DialogState msg
     { model with DialogState = newDialogState }, cmdMsgList
 
@@ -140,7 +139,14 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
                 textChanged = (fun args -> dispatch (SetCommunityName args.NewTextValue))
              )
              View.Label(text = "The community name is the last part of your Relogify URL: ")
-             View.Label(text = "TODO: Formatted text")
+             View.Label(
+                 formattedText = View.FormattedString(
+                    spans = [
+                        View.Span(text = "https://relogify.com/")
+                        View.Span(text = "communityname", fontAttributes = FontAttributes.Bold)
+                     ]
+                 )
+             )
              View.Grid(children = [
                  View.Button(
                      text = "Fetch Players",
@@ -158,7 +164,7 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
          ]
      )
 
-let playerInput (players: string list) dispatch =
+let playerInput (players: string list) (communityName: string) dispatch =
     let getPlayerByMaybeIndex (maybeIndex: int option) (players: string list) =
         maybeIndex
         |> Option.bind (fun index -> players |> List.tryItem(index))
@@ -168,9 +174,15 @@ let playerInput (players: string list) dispatch =
         margin = Thickness(10.0),
         orientation = StackOrientation.Vertical,
         children = [
-            View.Label(text = "Step 2: Select your player in ")
-            View.Label(text = "TODO: Formatted text")
-
+            View.Label(
+                formattedText =
+                    View.FormattedString(
+                        spans = [
+                            View.Span(text = "Step 2: Select your player in ")
+                            View.Span(text = communityName, fontAttributes = FontAttributes.Bold)
+                        ]
+                    )
+            )
             View.ListView(
                 items = (players |> List.map (fun player -> View.TextCell player)),
                 itemSelected = (fun maybeIndex -> dispatch <| SelectPlayer (players |> getPlayerByMaybeIndex maybeIndex))
@@ -233,7 +245,7 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
                                      ]
                                  | ChoosingPlayer (players, newSettings) ->
                                      [
-                                         (playerInput players dispatch).Row(0)
+                                         (playerInput players newSettings.CommunityName dispatch).Row(0)
 
                                          View.Grid(
                                              coldefs = [ Star; Star ],
