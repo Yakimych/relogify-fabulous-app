@@ -2,32 +2,40 @@ module Relogify.ApplicationSettings
 
 open System
 open Xamarin.Forms
+open Newtonsoft.Json
 
-type ApplicationSettings = {
-    CommunityName: string option
-    PlayerName: string option
-}
+type Community =
+    { CommunityName: string
+      PlayerName: string }
 
-let CommunityNameStorageKey = "community_name"
-let PlayerNameStorageKey = "player_name"
+type ApplicationSettings =
+    { Communities: Community list }
 
-let getStringValueOrNone key =
-    let found, property = Application.Current.Properties.TryGetValue(key)
-    if found then Some(property.ToString()) else None
+let ApplicationSettinsStorageKey = "app_settings_key"
 
-let getApplicationSettings (): ApplicationSettings =
-    { CommunityName = getStringValueOrNone CommunityNameStorageKey
-      PlayerName = getStringValueOrNone PlayerNameStorageKey }
+let getApplicationSettingsOrNone key =
+    try
+        match Application.Current.Properties.TryGetValue key with
+        | true, (:? string as json) -> JsonConvert.DeserializeObject<ApplicationSettings>(json) |> Some
+        | _ -> None
+    with ex ->
+        None
+
+let getApplicationSettings(): ApplicationSettings =
+    getApplicationSettingsOrNone ApplicationSettinsStorageKey |>
+        Option.defaultValue { Communities = [] }
 
 let saveApplicationSettings (communityName: string) (playerName: string) =
-    if not (String.IsNullOrEmpty(communityName)) then
-        Application.Current.Properties.[CommunityNameStorageKey] <- communityName
-    if not (String.IsNullOrEmpty(playerName)) then
-        Application.Current.Properties.[PlayerNameStorageKey] <- playerName
+    match communityName, playerName with 
+    | cn, pn when not (String.IsNullOrEmpty(cn)) && not (String.IsNullOrEmpty(pn)) ->
+        let communities = [{ CommunityName = cn ; PlayerName = pn}]
+
+        let json = JsonConvert.SerializeObject({ Communities = communities })
+
+        Application.Current.Properties.[ApplicationSettinsStorageKey] <- json
+    | _ -> ignore ()
 
     Application.Current.SavePropertiesAsync()
 
 let areSet (applicationSettings: ApplicationSettings) =
-    match applicationSettings.CommunityName, applicationSettings.PlayerName with
-    | Some _, Some _ -> true
-    | _ -> false
+    applicationSettings.Communities |> List.isEmpty |> not 

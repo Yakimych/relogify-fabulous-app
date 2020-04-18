@@ -7,16 +7,15 @@ open Relogify.ApplicationSettings
 open Xamarin.Forms
 open System
 
-type Settings = { CommunityName: string; PlayerName: string }
-
 type DialogState =
     | Closed
     | EditingCommunityName of communityName: string
     | FetchingPlayers of communityName: string
-    | FailedFetchingPlayers of communityName : string * errorMessage: string
-    | ChoosingPlayer of players: string list * settingsUnderEdit: Settings
+    | FailedFetchingPlayers of communityName: string * errorMessage: string
+    | ChoosingPlayer of players: string list * settingsUnderEdit: Community
 
-type Model = { DialogState: DialogState }
+type Model =
+    { DialogState: DialogState }
 
 type Msg =
     | OpenDialog of savedCommunityName: string
@@ -27,16 +26,17 @@ type Msg =
     | BackToEditCommunity
     | SelectPlayer of selectedPlayer: string
     | SaveSettings
-    | SettingsSaved of Settings
+    | SettingsSaved of Community
     | CancelDialog
 
 type CmdMsg =
     | FetchPlayersCmdMsg
-    | SaveSettingsCmdMsg of Settings
+    | SaveSettingsCmdMsg of Community
 
-let toApplicationSettings (settings: Settings): ApplicationSettings =
-    { CommunityName = settings.CommunityName |> stringToOption
-      PlayerName = settings.PlayerName |> stringToOption }
+let toApplicationSettings (settings: Community): ApplicationSettings =
+    { Communities =
+          [ { CommunityName = settings.CommunityName
+              PlayerName = settings.PlayerName } ] }
 
 let performTransition (state: DialogState) (transition: Msg): DialogState * CmdMsg list =
     match (state, transition) with
@@ -91,7 +91,7 @@ let fetchPlayersCmd () =
     }
     |> Cmd.ofAsyncMsg
 
-let saveSettingsCmd (settings: Settings) =
+let saveSettingsCmd (settings: Community) =
     async {
         do! ApplicationSettings.saveApplicationSettings settings.CommunityName settings.PlayerName |> Async.AwaitTask
         return SettingsSaved settings
@@ -267,11 +267,9 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
         ]
     )
 
-let view (model: Model) (savedPlayerName: string) (savedCommunityName: string) dispatch =
-    View.ContentPage(
-        title = "Settings",
-        icon = Image.Path "tab_settings.png",
-        content =
+let viewCommunityListItem dispatch (community: Community) =
+    View.ViewCell
+        (view =
             View.Grid(
                 children = [
                     yield View.Grid
@@ -281,21 +279,43 @@ let view (model: Model) (savedPlayerName: string) (savedCommunityName: string) d
                          children =
                              [ View.Label(text = "Community: ", fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(0)
-                               View.Label(text = savedCommunityName, fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = community.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(1)
                                View.Label(text = "Player: ", fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(0)
-                               View.Label(text = savedPlayerName, fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = community.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
-                               View.Button(text = "Edit", backgroundColor = Color.Orange, textColor = Color.Black,
-                                           fontSize = FontSize.Named(NamedSize.Large),
-                                           margin = Thickness(15.0), height = 60.0, cornerRadius = 10, borderWidth = 2.0,
-                                           command = (fun _ -> dispatch (OpenDialog savedCommunityName))).Row(2).Column(0)
-                                   .ColumnSpan(2) ])
-
-                    yield dialogBackdrop (model.DialogState |> dialogIsOpen)
-                    yield dialogBody model savedCommunityName dispatch
-                ]
+                               ])
+                    ]
+               )
             )
-    )
 
+
+let view (model: Model) (communities: Community list) dispatch =
+    View.ContentPage
+        (title = "Settings", icon = Image.Path "tab_settings.png",
+         content =
+             View.Grid
+                 (children =
+                     [ View.AbsoluteLayout
+                         (children =
+                             [ View.ListView(
+                                items = (communities |> List.map (viewCommunityListItem dispatch)),
+                                hasUnevenRows = true
+                               )
+                               View.Button(
+                                    text = "Add", 
+                                    backgroundColor = Color.Orange, 
+                                    textColor = Color.Black,
+                                    fontSize = FontSize.Named(NamedSize.Large), 
+                                    margin = Thickness(15.0),
+                                    height = 60.0, 
+                                    cornerRadius = 30,
+                                    borderWidth = 2.0,
+                                    command = (fun _ -> dispatch (OpenDialog ""))
+                                )
+                                   .LayoutFlags(AbsoluteLayoutFlags.PositionProportional)
+                                   .LayoutBounds(Rectangle(1.0, 1.0, 80.0, 80.0)) ])
+                       dialogBackdrop (model.DialogState |> dialogIsOpen)
+                       dialogBody model "" dispatch ]))
+                       

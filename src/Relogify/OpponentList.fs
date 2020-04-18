@@ -24,11 +24,11 @@ type CmdMsg = FetchPlayersCmdMsg of communityName: string
 type OutMsg =
     | PlayerSelectedOutMsg of player: string
 
-let initModel (applicationSettings: ApplicationSettings): Model * CmdMsg list =
+let initModel (communityName: string): Model * CmdMsg list =
     let cmdMsgs =
-        match applicationSettings.PlayerName, applicationSettings.CommunityName with
-        | Some(_), Some(communityName) -> [FetchPlayersCmdMsg communityName]
-        | _ -> []
+        match communityName with
+        | "" -> []
+        | name -> [FetchPlayersCmdMsg name]
 
     { FetchPlayersState = NotAsked }, cmdMsgs
 

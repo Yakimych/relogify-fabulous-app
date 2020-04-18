@@ -57,10 +57,22 @@ module App =
         |> List.choose getPlayerNameIfAddingResult
         |> List.tryHead
 
+    // TODO: save selected community in settings
+    let getSelectedCommunity () = 
+        let applicationSettings = getApplicationSettings ()
+        applicationSettings.Communities 
+        |> List.tryHead 
+
+    let getSelectedCommunityOrDefault () =
+        getSelectedCommunity() 
+        |> Option.defaultWith (fun _ -> { CommunityName = ""; PlayerName = "" })
+
     let init () =
-        let applicationSettings = ApplicationSettings.getApplicationSettings ()
-        let opponentListModel, opponentListCmdMsgs = OpponentList.initModel applicationSettings
+        let selectedCommunity = getSelectedCommunityOrDefault ()
+
+        let opponentListModel, opponentListCmdMsgs = OpponentList.initModel selectedCommunity.CommunityName
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
+        let applicationSettings = ApplicationSettings.getApplicationSettings ()
 
         { PageStack = []
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
@@ -69,7 +81,7 @@ module App =
           AddResultModel = AddResult.initModel
           TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
-          SettingsModel = Settings.initModel applicationSettings.CommunityName.IsSome }, cmdMsgs
+          SettingsModel = Settings.initModel true }, cmdMsgs
 
     let pushPage (page: Page) (model: Model): Model =
         { model with PageStack = [page] @ model.PageStack }
@@ -114,9 +126,10 @@ module App =
                     { model with AddResultModel = AddResult.initModel } // TODO: Remove this, since the AddResultModel is already reset in the popPage function
                 | _ -> model
 
-            match updatedModel.ApplicationSettings.CommunityName, updatedModel.ApplicationSettings.PlayerName, maybeOpponentName with
-            | Some communityName, Some ownName, Some opponentName ->
-                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg communityName ownName opponentName
+            let selectedCommunity = getSelectedCommunityOrDefault ()
+            match  maybeOpponentName with
+            | Some opponentName ->
+                let addResultModel, addResultCmdMsgs = AddResult.update updatedModel.AddResultModel addResultMsg selectedCommunity.CommunityName selectedCommunity.PlayerName opponentName
                 { updatedModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
             | _ -> updatedModel, []
         | TimerMsg timerMsg ->
@@ -168,7 +181,7 @@ module App =
     let renderPage (model: Model) dispatch (page: Page) =
         match page with
         | AddResult playerNameToAddResultFor ->
-            let currentPlayerOrEmpty = model.ApplicationSettings.PlayerName |> Option.defaultValue ""
+            let currentPlayerOrEmpty = getSelectedCommunityOrDefault().PlayerName
             (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
                 .ToolbarItems([ View.ToolbarItem( text = "Timer", command = (fun () -> dispatch <| PushPage Timer)) ])
         | Timer ->
@@ -177,6 +190,9 @@ module App =
     let view (model: Model) dispatch =
         let pagesInTheStack: ViewElement seq =
             model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
+
+        let selectedCommunity = getSelectedCommunity()
+        let communities = (getApplicationSettings ()).Communities
 
         View.NavigationPage(
             ref = navigationPageRef,
@@ -198,15 +214,14 @@ module App =
                     barTextColor = Color.White,
                     children = [
                         yield!
-                            match model.ApplicationSettings.PlayerName, model.ApplicationSettings.CommunityName with
-                            | Some playerName, Some communityName ->
+                            match selectedCommunity with
+                            | Some {PlayerName=playerName; CommunityName=communityName} ->
                                 [OpponentList.view model.OpponentListModel playerName communityName (Msg.OpponentListMsg >> dispatch)]
-                            | _, _ -> []
+                            | _ -> []
 
                         yield (Settings.view
                             model.SettingsModel
-                            (model.ApplicationSettings.PlayerName |> Option.defaultValue "")
-                            (model.ApplicationSettings.CommunityName |> Option.defaultValue "")
+                            communities
                             (Msg.SettingsMsg >> dispatch))
 
                         yield About.view model.AboutModel
