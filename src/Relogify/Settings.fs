@@ -13,7 +13,7 @@ type DialogState =
     | EditingCommunityName of communityName: string
     | FetchingPlayers of communityName: string
     | FailedFetchingPlayers of communityName: string * errorMessage: string
-    | ChoosingPlayer of players: string list * settingsUnderEdit: Community
+    | ChoosingPlayer of players: string list * communityUnderEdit: Community
 
 type Model =
     { DialogState: DialogState }
@@ -26,15 +26,17 @@ type Msg =
     | FetchingPlayersError of errorMessage: string
     | BackToEditCommunity
     | SelectPlayer of selectedPlayer: string
-    | SaveCommunity
-    | SelectCommunity of community: Community
+    | CommunityOnSave
+    | CommunityOnDelete of communityName : string
+    | CommunityOnSelect of community: Community // TODO: remove when tabs with communities are implemented
     | SettingsSaved of ApplicationSettings
     | CancelDialog
 
 type CmdMsg =
     | FetchPlayersCmdMsg of communityName: string
-    | SaveSettingsCmdMsg of Community
-
+    | AddOrUpdateCommunityCmdMsg of community : Community
+    | DeleteCommunityCmdMsg of communityName: string
+    
 let performTransition (state: DialogState) (transition: Msg): DialogState * CmdMsg list =
     match (state, transition) with
     | (Closed, OpenDialog savedCommunityName) ->
@@ -65,8 +67,11 @@ let performTransition (state: DialogState) (transition: Msg): DialogState * CmdM
         ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer }), []
     | (ChoosingPlayer (_, _), CancelDialog) ->
         Closed, []
-    | (ChoosingPlayer (_, settingsUnderEdit), SaveCommunity) ->
-        Closed, [SaveSettingsCmdMsg settingsUnderEdit]
+    | (ChoosingPlayer (_, communityUnderEdit), CommunityOnSave) ->
+        Closed, [AddOrUpdateCommunityCmdMsg communityUnderEdit]
+
+    | (Closed, CommunityOnDelete communityNameToDelete) ->
+        Closed, [DeleteCommunityCmdMsg communityNameToDelete]
 
     | (currentState, _disallowedTransition) -> currentState, []
 
@@ -89,26 +94,39 @@ let fetchPlayersCmd (communityName: string) =
 let communitiesMatch (community : Community) (communityToCheck : Community) = 
     communityToCheck.CommunityName = community.CommunityName
 
-let saveCommunity (communityToSave : Community) (communities : Community list) : Community list =
+let canDelete (communities : Community list) =
+    communities |> List.length > 1
+
+let updateCommunities (communityToSave : Community) (communities : Community list) : Community list =
     match communities |> List.exists (communitiesMatch communityToSave) with
     | false -> communities @ [communityToSave]
     | true -> communities |> List.map (fun community ->
         if communitiesMatch community communityToSave then communityToSave else community
     )
 
-let saveSettingsCmd (community: Community) =
+let deleteCommunity (communityNameToDelete : string) (communities : Community list) =
+    if canDelete communities then
+        communities |> List.filter (fun community -> community.CommunityName <> communityNameToDelete)
+    else 
+        communities
+
+let saveCommunitiesCmd (communities : Community list) = 
     async {
-        let communities = (getApplicationSettings ()).Communities |> saveCommunity community
-        // TODO: set selected community
         do! saveApplicationSettings { Communities = communities } |> Async.AwaitTask
         return getApplicationSettings () |> SettingsSaved
-    }
-    |> Cmd.ofAsyncMsg
+    } |> Cmd.ofAsyncMsg
+
+let deleteCommunityCmd (communityName : string) =
+    (getApplicationSettings ()).Communities |> deleteCommunity communityName |> saveCommunitiesCmd
+
+let addOrUpdateCommunityCmd (community: Community) =
+    (getApplicationSettings ()).Communities |> updateCommunities community |> saveCommunitiesCmd
 
 let mapCommands =
     function
     | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
-    | SaveSettingsCmdMsg settings -> saveSettingsCmd settings
+    | AddOrUpdateCommunityCmdMsg settings -> addOrUpdateCommunityCmd settings
+    | DeleteCommunityCmdMsg communityName -> deleteCommunityCmd communityName
 
 let update (model: Model) (msg: Msg): Model * CmdMsg list =
     let newDialogState, cmdMsgList = performTransition model.DialogState msg
@@ -267,7 +285,7 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
                                                  View.Button(
                                                      text = "Save",
                                                      backgroundColor = Color.LightGreen,
-                                                     command = (fun _ -> dispatch SaveCommunity),
+                                                     command = (fun _ -> dispatch CommunityOnSave),
                                                      commandCanExecute = (not <| String.IsNullOrEmpty(newSettings.PlayerName))
                                                  ).Column(1)
                                              ]
@@ -287,7 +305,7 @@ let dialogBody (model: Model) (savedCommunityName: string) dispatch =
         ]
     )
 
-let viewCommunityListItem dispatch (community: Community) =
+let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: Community) =
     View.ViewCell
         (view =
             View.Grid(
@@ -307,8 +325,10 @@ let viewCommunityListItem dispatch (community: Community) =
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
                                ])
                     ]
-               )
-            )
+               ),
+        contextActions = [
+                View.MenuItem(text = "Delete", command = (fun _ -> dispatch (CommunityOnDelete community.CommunityName)), commandCanExecute = isDeleteVisible )]
+        )
 
 
 let view (model: Model) (communities: Community list) dispatch =
@@ -320,8 +340,8 @@ let view (model: Model) (communities: Community list) dispatch =
                      [ View.AbsoluteLayout
                          (children =
                              [ View.ListView(
-                                items = (communities |> List.map (viewCommunityListItem dispatch)),
-                                itemTapped = (fun index -> communities |> List.item index |> SelectCommunity |> dispatch),
+                                items = (communities |> List.map (viewCommunityListItem (canDelete communities) dispatch)),
+                                itemTapped = (fun index -> communities |> List.item index |> CommunityOnSelect |> dispatch),
                                 hasUnevenRows = true
                                )
                                View.Button(
@@ -331,7 +351,7 @@ let view (model: Model) (communities: Community list) dispatch =
                                     fontSize = FontSize.Named(NamedSize.Large), 
                                     margin = Thickness(15.0),
                                     height = 60.0, 
-                                    cornerRadius = 30,
+                                    cornerRadius = 10,
                                     borderWidth = 2.0,
                                     command = (fun _ -> dispatch (OpenDialog ""))
                                 )

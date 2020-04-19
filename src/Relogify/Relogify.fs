@@ -142,7 +142,8 @@ module App =
 
             match settingsMsg with
             | Settings.SettingsSaved newSettings -> { updatedModel with ApplicationSettings = newSettings }, []
-            | Settings.SelectCommunity community ->
+            // TODO: remove when tabs with communities are implemented
+            | Settings.CommunityOnSelect community ->
                  // Refetch the players
                 let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (community.CommunityName, community.PlayerName) |> OpponentListCmdMsg
                 let newCmdMsgs = appCmdMsgsFromSettings @ [opponentListCmdMsg]
