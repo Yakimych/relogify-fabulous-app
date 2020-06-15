@@ -30,6 +30,13 @@ let saveApplicationSettings (appSettings : ApplicationSettings) =
 
     Application.Current.SavePropertiesAsync()
 
+let addCommunityToSettings (communityName : string) (playerName : string) =
+    let currentSettings = getApplicationSettings ()
+    let newCommunity = { CommunityName = communityName; PlayerName = playerName }
+
+    // TODO: Check if community exists first
+    saveApplicationSettings { currentSettings with Communities = [newCommunity] @ currentSettings.Communities }
+
 let areSet (applicationSettings: ApplicationSettings) =
     applicationSettings.Communities |> List.isEmpty |> not 
 

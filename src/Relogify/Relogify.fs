@@ -16,6 +16,7 @@ module App =
         SelectedTabIndex : int
         OpponentListModel : OpponentList.Model
         SettingsModel : Settings.Model
+        FirstRunModel : FirstRun.Model
         AddResultModel : AddResult.Model
         TimerModel : Timer.Model
         ApplicationSettings : ApplicationSettings
@@ -25,18 +26,22 @@ module App =
         | OpponentListMsg of OpponentList.Msg
         | AddResultMsg of AddResult.Msg
         | TimerMsg of Timer.Msg
+        | FirstRunMsg of FirstRun.Msg
         | SettingsMsg of Settings.Msg
         | SetCurrentPage of tabIndex: int
         | PushPage of Page
         | PopPage
         | PopBackToHome
+        | SettingsUpdated of ApplicationSettings
 
     type CmdMsg =
         | OpponentListCmdMsg of OpponentList.CmdMsg
         | AddResultCmdMsg of AddResult.CmdMsg
         | SettingsCmdMsg of Settings.CmdMsg
+        | FirstRunCmdMsg of FirstRun.CmdMsg
         | TimerCmdMsg of Timer.CmdMsg
         | PopLastPageCmdMsg
+        | AddCommunityToSettings of communityName: string * playerName: string
 
     let navigationPageRef = ViewRef<NavigationPage>()
 
@@ -46,13 +51,22 @@ module App =
 
         Cmd.none
 
+    // TODO: Should this always be done in the parent/root?
+    let addCommunityToSettings (communityName : string) (playerName: string) =
+        async {
+            do! addCommunityToSettings communityName playerName |> Async.AwaitTask
+            return getApplicationSettings () |> SettingsUpdated
+        } |> Cmd.ofAsyncMsg
+
     let mapCommands (cmdMsg: CmdMsg): Cmd<Msg> =
         match cmdMsg with
         | OpponentListCmdMsg x -> OpponentList.mapCommands x |> Cmd.map OpponentListMsg
         | AddResultCmdMsg x -> AddResult.mapCommands x |> Cmd.map AddResultMsg
         | SettingsCmdMsg x -> Settings.mapCommands x |> Cmd.map SettingsMsg
+        | FirstRunCmdMsg x -> FirstRun.mapCommands x |> Cmd.map FirstRunMsg
         | TimerCmdMsg x -> Timer.mapCommands x |> Cmd.map TimerMsg
         | PopLastPageCmdMsg -> forcePopLastPage ()
+        | AddCommunityToSettings (communityName, playerName) -> addCommunityToSettings communityName playerName
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -80,6 +94,7 @@ module App =
           AddResultModel = AddResult.initModel
           TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
+          FirstRunModel = FirstRun.initModel true
           SettingsModel = Settings.initModel true }, cmdMsgs
 
     let pushPage (page: Page) (model: Model): Model =
@@ -103,7 +118,7 @@ module App =
         match msg with
         | OpponentListMsg opponentListMsg ->
             match getSelectedCommunity model.ApplicationSettings with
-            | Some({PlayerName = playerName}) -> 
+            | Some({PlayerName = playerName}) ->
                 let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg playerName
                 match opponentListOutMsg with
                 | Some (OpponentList.PlayerSelectedOutMsg selectedOpponentName) ->
@@ -150,8 +165,25 @@ module App =
 
                 model, newCmdMsgs
             | _ -> updatedModel, appCmdMsgsFromSettings
-            
-        | SetCurrentPage tabIndex -> { model with SelectedTabIndex = tabIndex }, []
+
+        | FirstRunMsg firstRunMsg ->
+            let firstRunModel, firstRunCmdMsgs, maybeFirstRunOutMsg = FirstRun.update model.FirstRunModel firstRunMsg
+            let updatedModel = { model with FirstRunModel = firstRunModel }
+            let appCmdMsgsFromFirstRun = firstRunCmdMsgs |> List.map FirstRunCmdMsg
+
+            match maybeFirstRunOutMsg with
+            | None -> updatedModel, appCmdMsgsFromFirstRun
+            | Some (FirstRun.OutMsg.FirstRunComplete (communityName, playerName)) ->
+                updatedModel, [ AddCommunityToSettings (communityName, playerName) ]
+
+        | SettingsUpdated newSettings ->
+            let maybeFirstCommunity = (newSettings.Communities |> List.tryHead)
+            let opponentListModel, opponentListCmdMsgs = maybeFirstCommunity |> OpponentList.initModel
+            let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
+
+            { model with ApplicationSettings = newSettings; OpponentListModel = opponentListModel }, cmdMsgs
+
+        | SetCurrentPage tabIndex -> { model with    SelectedTabIndex = tabIndex }, []
         | PushPage page -> model |> pushPage page, []
         | PopPage -> model |> popPage, []
         | PopBackToHome -> { model with PageStack = [] }, []
@@ -170,7 +202,7 @@ module App =
     let renderPage (model: Model) dispatch (page: Page) =
         match page with
         | AddResult playerNameToAddResultFor ->
-            let currentPlayerOrEmpty = getSelectedCommunity model.ApplicationSettings 
+            let currentPlayerOrEmpty = getSelectedCommunity model.ApplicationSettings
                                         |> Option.map (fun community -> community.PlayerName)
                                         |> Option.defaultValue ""
             (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
@@ -182,39 +214,46 @@ module App =
         let pagesInTheStack: ViewElement seq =
             model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
 
-        let communities = (getApplicationSettings ()).Communities
+        let applicationSettings = getApplicationSettings ()
 
-        View.NavigationPage(
-            ref = navigationPageRef,
-            barBackgroundColor = navigationPrimaryColor,
-            barTextColor = Color.White,
-            popped = (fun _ -> dispatch PopPage),
-            
-            pages = [
-                yield View.TabbedPage(
-                    currentPageChanged = (fun maybeIndex ->
-                        match maybeIndex with
-                        | None -> ()
-                        | Some index -> dispatch (SetCurrentPage index)
-                    ),
-                    title = getPageTitle model.SelectedTabIndex,
-                    barBackgroundColor = navigationPrimaryColor,
-                    unselectedTabColor = Color.FromHex("#95FFFFFF"),
-                    selectedTabColor = Color.White,
-                    barTextColor = Color.White,
-                    children = [
-                        yield OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
+        match applicationSettings.Communities with
+        | [] ->
+            FirstRun.view
+                model.FirstRunModel
+                []
+                (Msg.FirstRunMsg >> dispatch)
+        | communities ->
+            View.NavigationPage(
+                ref = navigationPageRef,
+                barBackgroundColor = navigationPrimaryColor,
+                barTextColor = Color.White,
+                popped = (fun _ -> dispatch PopPage),
 
-                        yield (Settings.view
-                            model.SettingsModel
-                            communities
-                            (Msg.SettingsMsg >> dispatch))
+                pages = [
+                    yield View.TabbedPage(
+                        currentPageChanged = (fun maybeIndex ->
+                            match maybeIndex with
+                            | None -> ()
+                            | Some index -> dispatch (SetCurrentPage index)
+                        ),
+                        title = getPageTitle model.SelectedTabIndex,
+                        barBackgroundColor = navigationPrimaryColor,
+                        unselectedTabColor = Color.FromHex("#95FFFFFF"),
+                        selectedTabColor = Color.White,
+                        barTextColor = Color.White,
+                        children = [
+                            yield OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
 
-                        yield About.view model.AboutModel
-                ])
+                            yield (Settings.view
+                                model.SettingsModel
+                                communities
+                                (Msg.SettingsMsg >> dispatch))
 
-                yield! pagesInTheStack
-        ])
+                            yield About.view model.AboutModel
+                    ])
+
+                    yield! pagesInTheStack
+            ])
 
     let program = Program.mkProgramWithCmdMsg init update view mapCommands
 
@@ -227,6 +266,7 @@ type App () as app =
         |> Program.withConsoleTrace
 #endif
         |> XamarinFormsProgram.run app
+
 
 // Uncomment this code to save the application state to app.Properties using Newtonsoft.Json
 // See https://fsprojects.github.io/Fabulous/Fabulous.XamarinForms/models.html#saving-application-state for further  instructions.

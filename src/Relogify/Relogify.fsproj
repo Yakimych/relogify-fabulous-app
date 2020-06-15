@@ -15,6 +15,7 @@
     <Compile Include="OpponentList.fs" />
     <Compile Include="Timer.fs" />
     <Compile Include="Settings.fs" />
+    <Compile Include="FirstRun.fs" />
     <Compile Include="AddResult.fs" />
     <Compile Include="Relogify.fs" />
     <EmbeddedResource Include="appsettings.json" />
