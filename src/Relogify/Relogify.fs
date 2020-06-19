@@ -42,7 +42,6 @@ module App =
         | TimerCmdMsg of Timer.CmdMsg
         | PopLastPageCmdMsg
         | UpdateApplicationSettings of ApplicationSettings
-        | AddCommunityToSettings of communityName: string * playerName: string
 
     let navigationPageRef = ViewRef<NavigationPage>()
 
@@ -51,13 +50,6 @@ module App =
         |> Option.iter (fun navigationPage -> navigationPage.PopAsync() |> Async.AwaitTask |> Async.Ignore |> Async.StartImmediate)
 
         Cmd.none
-
-    // TODO: Should this always be done in the parent/root?
-    let addCommunityToSettingsCmd (communityName : string) (playerName: string) =
-        async {
-            do! addCommunityToSettings communityName playerName |> Async.AwaitTask
-            return getApplicationSettings () |> SettingsUpdated
-        } |> Cmd.ofAsyncMsg
 
     let updateSettingsCmd (settings : ApplicationSettings) = 
         async {
@@ -74,7 +66,6 @@ module App =
         | TimerCmdMsg x -> Timer.mapCommands x |> Cmd.map TimerMsg
         | PopLastPageCmdMsg -> forcePopLastPage ()
         | UpdateApplicationSettings settings -> updateSettingsCmd settings
-        | AddCommunityToSettings (communityName, playerName) -> addCommunityToSettingsCmd communityName playerName
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -181,7 +172,7 @@ module App =
             match maybeFirstRunOutMsg with
             | None -> updatedModel, appCmdMsgsFromFirstRun
             | Some (FirstRun.OutMsg.FirstRunComplete (communityName, playerName)) ->
-                updatedModel, [ AddCommunityToSettings (communityName, playerName) ]
+                updatedModel, [ { Communities = [{ CommunityName = communityName; PlayerName = playerName } ] } |> UpdateApplicationSettings]
 
         | SettingsUpdated newSettings ->
             let maybeFirstCommunity = (newSettings.Communities |> List.tryHead)
