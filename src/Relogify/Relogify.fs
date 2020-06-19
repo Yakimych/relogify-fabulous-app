@@ -41,6 +41,7 @@ module App =
         | FirstRunCmdMsg of FirstRun.CmdMsg
         | TimerCmdMsg of Timer.CmdMsg
         | PopLastPageCmdMsg
+        | UpdateApplicationSettings of ApplicationSettings
         | AddCommunityToSettings of communityName: string * playerName: string
 
     let navigationPageRef = ViewRef<NavigationPage>()
@@ -52,9 +53,15 @@ module App =
         Cmd.none
 
     // TODO: Should this always be done in the parent/root?
-    let addCommunityToSettings (communityName : string) (playerName: string) =
+    let addCommunityToSettingsCmd (communityName : string) (playerName: string) =
         async {
             do! addCommunityToSettings communityName playerName |> Async.AwaitTask
+            return getApplicationSettings () |> SettingsUpdated
+        } |> Cmd.ofAsyncMsg
+
+    let updateSettingsCmd (settings : ApplicationSettings) = 
+        async {
+            do! saveApplicationSettings settings |> Async.AwaitTask
             return getApplicationSettings () |> SettingsUpdated
         } |> Cmd.ofAsyncMsg
 
@@ -66,7 +73,8 @@ module App =
         | FirstRunCmdMsg x -> FirstRun.mapCommands x |> Cmd.map FirstRunMsg
         | TimerCmdMsg x -> Timer.mapCommands x |> Cmd.map TimerMsg
         | PopLastPageCmdMsg -> forcePopLastPage ()
-        | AddCommunityToSettings (communityName, playerName) -> addCommunityToSettings communityName playerName
+        | UpdateApplicationSettings settings -> updateSettingsCmd settings
+        | AddCommunityToSettings (communityName, playerName) -> addCommunityToSettingsCmd communityName playerName
 
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
@@ -151,20 +159,19 @@ module App =
             | _ ->
                 { model with TimerModel = timerModel }, timerCmdMsgs |> List.map TimerCmdMsg
         | SettingsMsg settingsMsg ->
-            let settingsModel, settingsCmdMsgs = Settings.update model.SettingsModel settingsMsg
+            let settingsModel, settingsCmdMsgs, settingsOutMsg = Settings.update model.SettingsModel model.ApplicationSettings settingsMsg
             let updatedModel = { model with SettingsModel = settingsModel }
             let appCmdMsgsFromSettings = settingsCmdMsgs |> List.map SettingsCmdMsg
 
-            match settingsMsg with
-            | Settings.SettingsSaved newSettings -> { updatedModel with ApplicationSettings = newSettings }, []
-            // TODO: remove when tabs with communities are implemented
-            | Settings.CommunityOnSelect community ->
+            match settingsOutMsg with 
+            | Some (Settings.OutMsg.SettingsUpdated newSettings) -> 
+                updatedModel, (UpdateApplicationSettings newSettings) :: appCmdMsgsFromSettings
+            | Some (Settings.OutMsg.CommunitySelected community) ->
                  // Refetch the players
                 let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (community.CommunityName, community.PlayerName) |> OpponentListCmdMsg
-                let newCmdMsgs = appCmdMsgsFromSettings @ [opponentListCmdMsg]
+                updatedModel, opponentListCmdMsg :: appCmdMsgsFromSettings
 
-                model, newCmdMsgs
-            | _ -> updatedModel, appCmdMsgsFromSettings
+            | None -> updatedModel, appCmdMsgsFromSettings
 
         | FirstRunMsg firstRunMsg ->
             let firstRunModel, firstRunCmdMsgs, maybeFirstRunOutMsg = FirstRun.update model.FirstRunModel firstRunMsg
@@ -214,9 +221,7 @@ module App =
         let pagesInTheStack: ViewElement seq =
             model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
 
-        let applicationSettings = getApplicationSettings ()
-
-        match applicationSettings.Communities with
+        match model.ApplicationSettings.Communities with
         | [] ->
             FirstRun.view
                 model.FirstRunModel
