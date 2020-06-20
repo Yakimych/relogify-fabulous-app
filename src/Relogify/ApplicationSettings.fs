@@ -10,7 +10,7 @@ type Community =
 type ApplicationSettings =
     { Communities: Community list }
 
-let ApplicationSettinsStorageKey = "app_settings_key"
+let ApplicationSettingsStorageKey = "app_settings_key"
 
 let getApplicationSettingsOrNone key =
     try
@@ -21,12 +21,12 @@ let getApplicationSettingsOrNone key =
         None
 
 let getApplicationSettings (): ApplicationSettings =
-    getApplicationSettingsOrNone ApplicationSettinsStorageKey |>
+    getApplicationSettingsOrNone ApplicationSettingsStorageKey |>
         Option.defaultValue { Communities = [] }
 
 let saveApplicationSettings (appSettings : ApplicationSettings) =
     let json = JsonConvert.SerializeObject(appSettings)
-    Application.Current.Properties.[ApplicationSettinsStorageKey] <- json
+    Application.Current.Properties.[ApplicationSettingsStorageKey] <- json
 
     Application.Current.SavePropertiesAsync()
 
