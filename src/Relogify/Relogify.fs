@@ -4,6 +4,7 @@ open AddResult
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
+open Relogify.Styles
 open Xamarin.Forms
 
 module App =
@@ -93,7 +94,7 @@ module App =
           AddResultModel = AddResult.initModel
           TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
-          FirstRunModel = FirstRun.initModel true
+          FirstRunModel = FirstRun.initModel ()
           SettingsModel = Settings.initModel true }, cmdMsgs
 
     let pushPage (page: Page) (model: Model): Model =
@@ -186,8 +187,6 @@ module App =
         | PopPage -> model |> popPage, []
         | PopBackToHome -> { model with PageStack = [] }, []
 
-    let navigationPrimaryColor = Color.FromHex("#2196F3")
-
     let getPageTitle (tabIndex: int) =
         match tabIndex with
         | 0 -> "Select Opponent"
@@ -208,21 +207,18 @@ module App =
         | Timer ->
             Timer.view model.TimerModel (Msg.TimerMsg >> dispatch)
 
-    let view (model: Model) dispatch =
+    let view (model: Model) (dispatch: Msg -> unit): ViewElement =
         let pagesInTheStack: ViewElement seq =
             model.PageStack |> Seq.map (renderPage model dispatch) |> Seq.rev
 
         match model.ApplicationSettings.Communities with
         | [] ->
-            FirstRun.view
-                model.FirstRunModel
-                []
-                (Msg.FirstRunMsg >> dispatch)
+            FirstRun.view model.FirstRunModel (Msg.FirstRunMsg >> dispatch)
         | communities ->
             View.NavigationPage(
                 ref = navigationPageRef,
                 barBackgroundColor = navigationPrimaryColor,
-                barTextColor = Color.White,
+                barTextColor = barTextColor,
                 popped = (fun _ -> dispatch PopPage),
 
                 pages = [
@@ -234,7 +230,7 @@ module App =
                         ),
                         title = getPageTitle model.SelectedTabIndex,
                         barBackgroundColor = navigationPrimaryColor,
-                        unselectedTabColor = Color.FromHex("#95FFFFFF"),
+                        unselectedTabColor = unselectedTabColor,
                         selectedTabColor = Color.White,
                         barTextColor = Color.White,
                         children = [

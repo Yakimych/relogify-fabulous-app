@@ -3,20 +3,12 @@ module Relogify.Settings
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify
-open Relogify.Graphql
 open Relogify.ApplicationSettings
 open Xamarin.Forms
-open System
-
-type DialogState =
-    | Closed
-    | EditingCommunityName of communityName: string
-    | FetchingPlayers of communityName: string
-    | FailedFetchingPlayers of communityName: string * errorMessage: string
-    | ChoosingPlayer of players: string list * communityUnderEdit: Community
 
 type Model =
-    { DialogState: DialogState }
+    | DialogClosed
+    | AddingCommunity of PlayerSelector.Model
 
 type OutMsg =
     | SettingsUpdated of ApplicationSettings
@@ -24,12 +16,7 @@ type OutMsg =
 
 type Msg =
     | OpenDialog of savedCommunityName: string
-    | SetCommunityName of newCommunityName: string
-    | StartFetchingPlayers
-    | FetchingPlayersSuccess of fetchedPlayers: string list
-    | FetchingPlayersError of errorMessage: string
-    | BackToEditCommunity
-    | SelectPlayer of selectedPlayer: string
+    | PlayerSelectorMsg of PlayerSelector.Msg
     | CommunityOnSave
     | CommunityOnDelete of communityName : string
     | CommunityOnSelect of community: Community // TODO: remove when tabs with communities are implemented
@@ -37,7 +24,7 @@ type Msg =
     | CancelDialog
 
 type CmdMsg =
-    | FetchPlayersCmdMsg of communityName: string
+    | PlayerSelectorCmdMsg of PlayerSelector.CmdMsg
 
 let communitiesMatch (community : Community) (communityToCheck : Community) = 
     communityToCheck.CommunityName = community.CommunityName
@@ -64,80 +51,42 @@ let deleteCommunityFromSettings (currentSettings: ApplicationSettings) (communit
 let addOrUpdateCommunityFromSettings (currentSettings: ApplicationSettings) (community: Community) =
     { currentSettings with Communities = currentSettings.Communities |> updateCommunity community }
 
-let performTransition (state: DialogState) (currentSettings: ApplicationSettings) (transition: Msg): DialogState * CmdMsg list * OutMsg option =
-    match (state, transition) with
-    | (Closed, OpenDialog savedCommunityName) ->
-        EditingCommunityName savedCommunityName, [], None
-
-    | (EditingCommunityName _, SetCommunityName newCommunityName) ->
-        EditingCommunityName newCommunityName, [], None
-    | (EditingCommunityName communityName, StartFetchingPlayers) when communityName |> isNotEmpty ->
-        FetchingPlayers communityName, [FetchPlayersCmdMsg communityName], None
-    | (EditingCommunityName (_), CancelDialog) ->
-        Closed, [], None
-
-    | (FetchingPlayers communityName, FetchingPlayersSuccess playerList) ->
-        ChoosingPlayer (playerList, { CommunityName = communityName; PlayerName = "" }), [], None
-    | (FetchingPlayers communityName, FetchingPlayersError errorMessage) ->
-        FailedFetchingPlayers (communityName, errorMessage), [], None
-
-    | (FailedFetchingPlayers (_, _), SetCommunityName newCommunityName) ->
-        EditingCommunityName newCommunityName, [], None
-    | (FailedFetchingPlayers (communityName, _), StartFetchingPlayers) ->
-        FetchingPlayers communityName, [FetchPlayersCmdMsg communityName], None
-    | (FailedFetchingPlayers (_, _), CancelDialog) ->
-        Closed, [], None
-
-    | (Closed, CommunityOnSelect community) ->
-        Closed, [], CommunitySelected community |> Some
-
-    | (ChoosingPlayer (_, newSettings), BackToEditCommunity) ->
-        EditingCommunityName (newSettings.CommunityName), [], None
-    | (ChoosingPlayer (playerList, newSettings), SelectPlayer newSelectedPlayer) ->
-        ChoosingPlayer (playerList, { newSettings with PlayerName = newSelectedPlayer }), [], None
-    | (ChoosingPlayer (_, _), CancelDialog) ->
-        Closed, [], None
-    | (ChoosingPlayer (_, communityUnderEdit), CommunityOnSave) ->
-        Closed, [], addOrUpdateCommunityFromSettings currentSettings communityUnderEdit|> SettingsUpdated |> Some
-
-    | (Closed, CommunityOnDelete communityNameToDelete) ->
-        Closed, [], deleteCommunityFromSettings currentSettings communityNameToDelete |> SettingsUpdated |> Some
-
-    | (currentState, _disallowedTransition) -> currentState, [], None
-
 let initModel (communityNameHasBeenSaved: bool) =
     if communityNameHasBeenSaved then
-        { DialogState = Closed }
+        DialogClosed
     else
-        { DialogState = EditingCommunityName "" }
-
-let fetchPlayersCmd (communityName: string) =
-    async {
-        let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
-        return
-            match result.Data with
-            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> FetchingPlayersSuccess
-            | None -> FetchingPlayersError (sprintf "Failed to fetch players for community '%s'. Please check your internet connection and try again." communityName)
-    }
-    |> Cmd.ofAsyncMsg
+        AddingCommunity <| PlayerSelector.initModel ()
 
 let mapCommands (cmdMsg: CmdMsg): Cmd<Msg> =
     match cmdMsg with
-    | FetchPlayersCmdMsg communityName -> fetchPlayersCmd communityName
+    | PlayerSelectorCmdMsg playerSelectorCmdMsg -> PlayerSelector.mapCommands playerSelectorCmdMsg |> Cmd.map PlayerSelectorMsg
 
 let update (model: Model) (currentSettings: ApplicationSettings) (msg: Msg): Model * CmdMsg list * OutMsg option =
-    let newDialogState, cmdMsgList, outMsg = performTransition model.DialogState currentSettings msg
-    { model with DialogState = newDialogState }, cmdMsgList, outMsg
+    match (model, msg) with
+    | (DialogClosed, OpenDialog communityName) ->
+        AddingCommunity (PlayerSelector.EditingCommunityName communityName), [], None
+
+    | (DialogClosed, CommunityOnSelect community) ->
+        DialogClosed, [], CommunitySelected community |> Some
+
+    | (DialogClosed, CommunityOnDelete communityNameToDelete) ->
+        DialogClosed, [], deleteCommunityFromSettings currentSettings communityNameToDelete |> SettingsUpdated |> Some
+
+    | (AddingCommunity dialogState, PlayerSelectorMsg playerSelectorMsg) ->
+        match (dialogState, playerSelectorMsg) with
+        | (_, PlayerSelector.Msg.Abort) -> DialogClosed, [], None
+        | (_, PlayerSelector.Msg.Confirm (communityName, playerName)) ->
+            DialogClosed, [], addOrUpdateCommunityFromSettings currentSettings { CommunityName = communityName; PlayerName = playerName } |> SettingsUpdated |> Some
+        | (_, otherMsg) ->
+            let newDialogState, cmdMsgList = PlayerSelector.performTransition dialogState otherMsg
+            AddingCommunity newDialogState, cmdMsgList |> List.map PlayerSelectorCmdMsg, None
+    
+    | (_, _) -> model, [], None
 
 let dialogIsOpen =
     function
-    | Closed _ -> false
+    | DialogClosed _ -> false
     | _ -> true
-
-let isFetchingPlayers =
-    function
-    | FetchingPlayers _ -> true
-    | _ -> false
 
 let dialogBackdrop (isVisible: bool): ViewElement =
     View.StackLayout(
@@ -147,158 +96,22 @@ let dialogBackdrop (isVisible: bool): ViewElement =
         verticalOptions = LayoutOptions.FillAndExpand,
         opacity = 0.5,
         children = [
-            View.Label(text = "asd", verticalOptions = LayoutOptions.FillAndExpand)
+            View.Label(verticalOptions = LayoutOptions.FillAndExpand)
         ]
     )
 
-let communityInput (communityName: string) (isFetchingPlayers: bool) dispatch =
-     View.StackLayout(
-         margin = Thickness(10.0),
-         children = [
-             View.Label(text = "Step 1: Enter the community name")
-             View.Entry(
-                text = communityName,
-                keyboard = Keyboard.Plain,
-                textChanged = (fun args -> dispatch (SetCommunityName args.NewTextValue))
-             )
-             View.Label(text = "The community name is the last part of your Relogify URL: ")
-             View.Label(
-                 formattedText = View.FormattedString(
-                    spans = [
-                        View.Span(text = "https://relogify.com/")
-                        View.Span(text = "communityname", fontAttributes = FontAttributes.Bold)
-                     ]
-                 )
-             )
-             View.Grid(children = [
-                 View.Button(
-                     text = "Fetch Players",
-                     backgroundColor = Color.LightGreen,
-                     command = (fun _ -> dispatch StartFetchingPlayers),
-                     commandCanExecute = isNotEmpty communityName
-                 )
-                 View.ActivityIndicator(
-                    horizontalOptions = LayoutOptions.End,
-                    margin = Thickness(0.0, 0.0, 40.0, 0.0),
-                    isVisible = isFetchingPlayers,
-                    isRunning = isFetchingPlayers
-                 )
-             ])
-         ]
-     )
-
-let playerInput (players: string list) (communityName: string) dispatch =
-    let getPlayerByMaybeIndex (maybeIndex: int option) (players: string list) =
-        maybeIndex
-        |> Option.bind (fun index -> players |> List.tryItem(index))
-        |> Option.defaultValue ""
-
+let dialogBody (model: Model) dispatch =
     View.StackLayout(
-        margin = Thickness(10.0),
-        orientation = StackOrientation.Vertical,
-        children = [
-            View.Label(
-                formattedText =
-                    View.FormattedString(
-                        spans = [
-                            View.Span(text = "Step 2: Select your player in ")
-                            View.Span(text = communityName, fontAttributes = FontAttributes.Bold)
-                        ]
-                    )
-            )
-            View.ListView(
-                items = (players |> List.map (fun player -> View.TextCell player)),
-                itemSelected = (fun maybeIndex -> dispatch <| SelectPlayer (players |> getPlayerByMaybeIndex maybeIndex))
-            )
-
-        ]
-    )
-
-// TODO: Break up the model into parts and only pass the dialogModel here
-let dialogBody (model: Model) (savedCommunityName: string) dispatch =
-    View.StackLayout(
-        isVisible = dialogIsOpen model.DialogState,
+        isVisible = dialogIsOpen model,
         margin = Thickness(30.0, 50.0, 30.0, 50.0),
         backgroundColor = Color.White,
         orientation = StackOrientation.Vertical,
         horizontalOptions = LayoutOptions.FillAndExpand,
         verticalOptions = LayoutOptions.FillAndExpand,
-        children = [
-            View.StackLayout(
-                orientation = StackOrientation.Vertical,
-                horizontalOptions = LayoutOptions.FillAndExpand,
-                verticalOptions = LayoutOptions.FillAndExpand,
-                children = [
-                    View.StackLayout(
-                        height = 60.0,
-                        backgroundColor = Color.Accent,
-                        horizontalOptions = LayoutOptions.FillAndExpand,
-                        orientation = StackOrientation.Horizontal,
-                        children = [
-                            View.Label(
-                                  text = "Select Player",
-                                  textColor = Color.White,
-                                  horizontalOptions = LayoutOptions.FillAndExpand,
-                                  verticalOptions = LayoutOptions.FillAndExpand,
-                                  fontSize = FontSize.Named(NamedSize.Large),
-                                  margin = Thickness(20.0, 10.0, 0.0, 10.0)
-                              )
-                        ]
-                    )
-
-                    View.Grid(
-                         margin = Thickness(10.0),
-                         verticalOptions = LayoutOptions.FillAndExpand,
-                         rowdefs = [ Star; Absolute 50.0; Auto ],
-                         children = [
-                             yield!
-                                 match model.DialogState with
-//                                 | Closed _ -> failwith "TODO: Should never happen"
-                                 | Closed _ -> [communityInput "" false dispatch] // TODO: Remove?
-                                 | EditingCommunityName communityName -> [(communityInput communityName false dispatch).Row(0)]
-                                 | FetchingPlayers communityName -> [(communityInput communityName true dispatch).Row(0)]
-                                 | FailedFetchingPlayers (communityName, errorMessage) ->
-                                     [
-                                         View.StackLayout(
-                                             children = [
-                                                 communityInput communityName false dispatch
-                                                 View.Label(text = errorMessage, textColor = Color.Red)
-                                             ]
-                                         ).Row(0)
-                                     ]
-                                 | ChoosingPlayer (players, newSettings) ->
-                                     [
-                                         (playerInput players newSettings.CommunityName dispatch).Row(0)
-
-                                         View.Grid(
-                                             coldefs = [ Star; Star ],
-                                             children = [
-                                                 View.Button(
-                                                     text = "Back",
-                                                     backgroundColor = Color.Red,
-                                                     command = (fun _ -> dispatch BackToEditCommunity)
-                                                 ).Column(0)
-
-                                                 View.Button(
-                                                     text = "Save",
-                                                     backgroundColor = Color.LightGreen,
-                                                     command = (fun _ -> dispatch CommunityOnSave),
-                                                     commandCanExecute = (not <| String.IsNullOrEmpty(newSettings.PlayerName))
-                                                 ).Column(1)
-                                             ]
-                                         ).Row(1)
-                                     ]
-
-                             yield View.Button(
-                                     text = "Cancel",
-                                     backgroundColor = Color.LightGray,
-                                     command = (fun _ -> dispatch CancelDialog)
-                                 ).Row(2)
-                         ]
-                     )
-                ]
-            )
-        ]
+        children =
+            match model with
+            | DialogClosed -> []
+            | AddingCommunity playerSelectorModel -> [ PlayerSelector.view playerSelectorModel dispatch ]
     )
 
 let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: Community) =
@@ -330,7 +143,6 @@ let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: Communit
                 )]
         )
 
-
 let view (model: Model) (communities: Community list) dispatch =
     View.ContentPage
         (title = "Settings", icon = Image.Path "tab_settings.png",
@@ -357,6 +169,5 @@ let view (model: Model) (communities: Community list) dispatch =
                                 )
                                    .LayoutFlags(AbsoluteLayoutFlags.PositionProportional)
                                    .LayoutBounds(Rectangle(1.0, 1.0, 80.0, 80.0)) ])
-                       dialogBackdrop (model.DialogState |> dialogIsOpen)
-                       dialogBody model "" dispatch ]))
-                       
+                       dialogBackdrop (model |> dialogIsOpen)
+                       dialogBody model (PlayerSelectorMsg >> dispatch) ]))

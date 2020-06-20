@@ -104,8 +104,6 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
 
     | _ -> model, []
 
-let navigationPrimaryColor = Color.FromHex("#2196F3")
-
 let isAddingResult (state: State): bool =
     match state with
     | AddingResult -> true

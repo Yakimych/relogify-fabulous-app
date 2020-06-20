@@ -11,9 +11,11 @@
     <Compile Include="ConfigManager.fs" />
     <Compile Include="ApplicationSettings.fs" />
     <Compile Include="Graphql.fs" />
+    <Compile Include="Styles.fs" />
     <Compile Include="About.fs" />
     <Compile Include="OpponentList.fs" />
     <Compile Include="Timer.fs" />
+    <Compile Include="PlayerSelector.fs" />
     <Compile Include="Settings.fs" />
     <Compile Include="FirstRun.fs" />
     <Compile Include="AddResult.fs" />
