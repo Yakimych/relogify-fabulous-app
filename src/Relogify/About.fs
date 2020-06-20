@@ -11,7 +11,7 @@ let initModel = { AboutText = "About" }
 let view model =
     View.ContentPage(
         title = "About",
-        icon = Image.Path "tab_about.png",
+        icon = ImagePath "tab_about.png",
         content = View.CollectionView(
             items = [
                 View.StackLayout

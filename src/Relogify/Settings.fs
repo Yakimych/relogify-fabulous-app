@@ -145,7 +145,7 @@ let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: Communit
 
 let view (model: Model) (communities: Community list) dispatch =
     View.ContentPage
-        (title = "Settings", icon = Image.Path "tab_settings.png",
+        (title = "Settings", icon = ImagePath "tab_settings.png",
          content =
              View.Grid
                  (children =

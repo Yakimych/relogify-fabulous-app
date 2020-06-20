@@ -65,7 +65,7 @@ let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg
 let view (model: Model) (dispatch: Msg -> unit): ViewElement =
     View.ContentPage(
         title = "Players",
-        icon = Image.Path "tab_feed.png",
+        icon = ImagePath "tab_feed.png",
         content =
             match model with
             | Fetching _ -> View.ActivityIndicator(isRunning = true)
