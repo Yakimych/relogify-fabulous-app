@@ -4,6 +4,7 @@ open System
 open Fabulous
 open Fabulous.XamarinForms
 open Xamarin.Forms
+open Xamarin.Essentials
 open Relogify.SoundPlayer
 
 type TimerState =
@@ -32,6 +33,7 @@ type Msg =
 
 type CmdMsg =
     | RequestStartCmdMsg
+    | SetKeepScreenOnCmdMsg of bool
     | RequestPauseCmdMsg
     | TimerTickCmdMsg
     | PlaySoundCmdMsg of SoundType
@@ -56,6 +58,10 @@ let requestPlaySound (soundType: SoundType) =
 
 let requestPause () = Paused DateTime.Now |> Cmd.ofMsg
 
+let setKeepScreenOn (keepOn: bool) =
+    DeviceDisplay.KeepScreenOn <- keepOn
+    Cmd.none
+
 let tickFrequencyMs = 200
 let mapCommands =
     function
@@ -63,6 +69,7 @@ let mapCommands =
     | RequestPauseCmdMsg -> requestPause ()
     | PlaySoundCmdMsg soundType -> requestPlaySound soundType
     | TimerTickCmdMsg -> tick tickFrequencyMs
+    | SetKeepScreenOnCmdMsg keepOn -> setKeepScreenOn keepOn
 
 let normalTimeTotalMilliseconds = 5 * 60 * 1000
 let extraTimeTotalMilliseconds = 2 * 60 * 1000
@@ -102,16 +109,16 @@ let update (model: Model) (msg: Msg): Model * CmdMsg list * OutMsg option =
         { model with State = NotRunning; ExtraTime = extraTime; TotalTimeMs = getTotalTime(extraTime); TimeElapsedMs = 0 }, [], None
     | NotRunning _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0; HalfTimeBeepHasBeenPlayed = false; ExpirationWarningHasBeenPlayed = false }, [], None
 
-    | Starting, Started startTime -> { model with State = Running startTime }, [TimerTickCmdMsg], None
+    | Starting, Started startTime -> { model with State = Running startTime }, [TimerTickCmdMsg; SetKeepScreenOnCmdMsg true], None
 
     | Running lastTickAt, PauseRequested -> { model with State = Pausing lastTickAt }, [RequestPauseCmdMsg], None
-    | Running _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, [], None
+    | Running _, Reset -> { model with State = NotRunning; TimeElapsedMs = 0 }, [SetKeepScreenOnCmdMsg false], None
     | Running lastTickAt, Tick newTickAt ->
         let msElapsedSinceLastTick = int (newTickAt - lastTickAt).TotalMilliseconds
         let newTimeElapsed = (model.TimeElapsedMs + msElapsedSinceLastTick)
 
         if newTimeElapsed >= model.TotalTimeMs then
-            model, [PlaySoundCmdMsg FinalSiren], Some (TimerExpiredOutMsg model.ExtraTime)
+            model, [PlaySoundCmdMsg FinalSiren; SetKeepScreenOnCmdMsg false], Some (TimerExpiredOutMsg model.ExtraTime)
         else
             { model with State = Running newTickAt; TimeElapsedMs = newTimeElapsed }, [TimerTickCmdMsg] @ getSoundToPlayCmdMsgs model, None
     | Running _, SetSoundHasBeenPlayed soundType ->
@@ -125,7 +132,7 @@ let update (model: Model) (msg: Msg): Model * CmdMsg list * OutMsg option =
 
     | Pausing lastTickAt, Paused pauseTime ->
         let msElapsedSinceLastTick = int (pauseTime - lastTickAt).TotalMilliseconds
-        { model with State = NotRunning; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, [], None
+        { model with State = NotRunning; TimeElapsedMs = (model.TimeElapsedMs + msElapsedSinceLastTick) }, [SetKeepScreenOnCmdMsg false], None
 
     | _ -> model, [], None
 
