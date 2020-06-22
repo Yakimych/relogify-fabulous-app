@@ -96,14 +96,6 @@
   <Import Project="..\.nuget\NuGet.targets" />
   <Import Project="$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.FSharp.targets" Condition="Exists('$(MSBuildExtensionsPath)\Xamarin\iOS\Xamarin.iOS.FSharp.targets')" />
   <ItemGroup>
-    <Reference Include="FParsec, Version=1.0.3.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\packages\FParsec.1.0.3\lib\netstandard1.6\FParsec.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="FParsecCS, Version=1.0.3.0, Culture=neutral, PublicKeyToken=null">
-      <HintPath>..\packages\FParsec.1.0.3\lib\netstandard1.6\FParsecCS.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="FSharp.Data.GraphQL.Client, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\FSharp.Data.GraphQL.Client.1.0.5\lib\netstandard2.0\FSharp.Data.GraphQL.Client.dll</HintPath>
       <Private>True</Private>
@@ -140,11 +132,8 @@
     <Reference Include="Xamarin.Forms.Xaml">
       <HintPath>..\packages\Xamarin.Forms.4.7.0.968\lib\Xamarin.iOS10\Xamarin.Forms.Xaml.dll</HintPath>
     </Reference>
-    <Reference Include="FSharp.Core">
-      <HintPath>..\packages\FSharp.Core.4.6.2\lib\netstandard1.6\FSharp.Core.dll</HintPath>
-    </Reference>
     <Reference Include="Newtonsoft.Json">
-      <HintPath>..\packages\Newtonsoft.Json.12.0.2\lib\netstandard2.0\Newtonsoft.Json.dll</HintPath>
+      <HintPath>..\packages\Newtonsoft.Json.12.0.3\lib\netstandard2.0\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="Xamarin.Essentials">
       <HintPath>..\packages\Xamarin.Essentials.1.5.3.2\lib\xamarinios10\Xamarin.Essentials.dll</HintPath>
@@ -163,6 +152,15 @@
     </Reference>
     <Reference Include="OpenTK-1.0" />
     <Reference Include="System.Drawing.Common.dll" />
+    <Reference Include="FSharp.Core">
+      <HintPath>..\packages\FSharp.Core.4.7.2\lib\netstandard2.0\FSharp.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="FParsec">
+      <HintPath>..\packages\FParsec.1.1.1\lib\netstandard2.0\FParsec.dll</HintPath>
+    </Reference>
+    <Reference Include="FParsecCS">
+      <HintPath>..\packages\FParsec.1.1.1\lib\netstandard2.0\FParsecCS.dll</HintPath>
+    </Reference>
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Properties\AssemblyInfo.fs" />
@@ -180,11 +178,11 @@
     <BundleResource Include="Resources\tab_feed.png" />
     <BundleResource Include="Resources\tab_feed%402x.png" />
     <BundleResource Include="Resources\tab_feed%403x.png" />
-    <BundleResource Include="Resources\tab_feed@3x.png" />
     <BundleResource Include="Resources\tab_settings@3x.png" />
     <BundleResource Include="Resources\tab_about@3x.png" />
-    <BundleResource Include="Resources\tab_feed@2x.png" />
     <BundleResource Include="Resources\tab_settings@2x.png" />
+    <BundleResource Include="Resources\tab_feed@3x.png" />
+    <BundleResource Include="Resources\tab_feed@2x.png" />
     <BundleResource Include="Resources\tab_about@2x.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\Contents.json">
       <Visible>false</Visible>
@@ -234,4 +232,5 @@
     </ProjectReference>
   </ItemGroup>
   <Import Project="..\packages\Xamarin.Forms.4.7.0.968\build\Xamarin.Forms.targets" Condition="Exists('..\packages\Xamarin.Forms.4.7.0.968\build\Xamarin.Forms.targets')" />
+  <Import Project="..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets" Condition="Exists('..\packages\NETStandard.Library.2.0.3\build\netstandard2.0\NETStandard.Library.targets')" />
 </Project>
