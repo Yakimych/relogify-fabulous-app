@@ -66,7 +66,7 @@ let mapCommands =
 
 let normalTimeTotalMilliseconds = 5 * 60 * 1000
 let extraTimeTotalMilliseconds = 2 * 60 * 1000
-let expirationWarningMilliseconds = 2 * 60 * 1000
+let expirationWarningMilliseconds = 30 * 1000
 
 let getTotalTime extraTime =
     if extraTime then extraTimeTotalMilliseconds else normalTimeTotalMilliseconds
