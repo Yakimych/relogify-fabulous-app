@@ -1,25 +1,59 @@
 module Relogify.About
 
+open System.Reflection
 open Fabulous.XamarinForms
 open Xamarin.Forms
+open Xamarin.Essentials
 
-type Model =
-    { AboutText: string }
+[<Literal>]
+let relogifyUrl = "https://relogify.com"
 
-let initModel = { AboutText = "About" }
+let openBrowser (url: string) = fun () -> Browser.OpenAsync(url) |> ignore
 
-let view model =
+let openBrowserOnTap (url: string) = View.TapGestureRecognizer(command = openBrowser url)
+
+let openRelogifyInBrowser () = openBrowserOnTap relogifyUrl
+
+let aboutRelogify () =
+    let image = ImageSource.FromResource("Relogify.logo.png", Assembly.GetExecutingAssembly())
+    let imageSource = ImageSrc image
+
+    View.StackLayout(
+        margin = Thickness(20.0),
+        children = [
+            View.Label(
+                text = "Relogify",
+                margin = Thickness(0., 0., 0., 10.0),
+                fontAttributes = FontAttributes.Bold,
+                fontSize = FontSize.Named(NamedSize.Large),
+                horizontalOptions = LayoutOptions.Center)
+
+            View.Label(text = "Save all match results, analyze, view head-to-head records, statistics and more.")
+
+            View.Label(text = "Feature list", fontAttributes = FontAttributes.Bold, margin = Thickness(0., 20., 0., 0.))
+
+            View.StackLayout(
+                children = [
+                    View.Label(text = "- Weekly Results and Leaderboards", fontSize = FontSize.Named(NamedSize.Small))
+                    View.Label(text = "- Head-to-Head results and statistics", fontSize = FontSize.Named(NamedSize.Small))
+                    View.Label(text = "- Individual player results, stats and winning streaks", fontSize = FontSize.Named(NamedSize.Small))
+                    View.Label(text = "- All-time history and Elo ratings", fontSize = FontSize.Named(NamedSize.Small))
+                ])
+
+            View.Label(
+               text = "Click here to learn more",
+               fontAttributes = FontAttributes.Bold,
+               textColor = Color.Blue,
+               textDecorations = TextDecorations.Underline,
+               gestureRecognizers = [ openRelogifyInBrowser() ]
+            )
+            View.Image(source = imageSource, gestureRecognizers = [ openRelogifyInBrowser() ])
+        ]
+    )
+
+let view () =
     View.ContentPage(
         title = "About",
         icon = ImagePath "tab_about.png",
-        content = View.CollectionView(
-            items = [
-                View.StackLayout
-                    (padding = Thickness 20.0, verticalOptions = LayoutOptions.Center,
-                     children =
-                         [ View.Label
-                             (text = model.AboutText, horizontalOptions = LayoutOptions.Center, width = 200.0,
-                              horizontalTextAlignment = TextAlignment.Center) ])
-                    ]
-            )
-        )
+        content = aboutRelogify ()
+    )

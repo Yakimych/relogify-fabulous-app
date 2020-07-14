@@ -20,8 +20,7 @@ module App =
         FirstRunModel : FirstRun.Model
         AddResultModel : AddResult.Model
         TimerModel : Timer.Model
-        ApplicationSettings : ApplicationSettings
-        AboutModel : About.Model }
+        ApplicationSettings : ApplicationSettings }
 
     type Msg =
         | OpponentListMsg of OpponentList.Msg
@@ -52,7 +51,7 @@ module App =
 
         Cmd.none
 
-    let updateSettingsCmd (settings : ApplicationSettings) = 
+    let updateSettingsCmd (settings : ApplicationSettings) =
         async {
             do! saveApplicationSettings settings |> Async.AwaitTask
             return getApplicationSettings () |> SettingsUpdated
@@ -90,7 +89,6 @@ module App =
         { PageStack = []
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel = opponentListModel
-          AboutModel = About.initModel
           AddResultModel = AddResult.initModel
           TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
@@ -155,8 +153,8 @@ module App =
             let updatedModel = { model with SettingsModel = settingsModel }
             let appCmdMsgsFromSettings = settingsCmdMsgs |> List.map SettingsCmdMsg
 
-            match settingsOutMsg with 
-            | Some (Settings.OutMsg.SettingsUpdated newSettings) -> 
+            match settingsOutMsg with
+            | Some (Settings.OutMsg.SettingsUpdated newSettings) ->
                 updatedModel, (UpdateApplicationSettings newSettings) :: appCmdMsgsFromSettings
             | Some (Settings.OutMsg.CommunitySelected community) ->
                  // Refetch the players
@@ -241,7 +239,7 @@ module App =
                                 communities
                                 (Msg.SettingsMsg >> dispatch))
 
-                            yield About.view model.AboutModel
+                            yield About.view ()
                     ])
 
                     yield! pagesInTheStack

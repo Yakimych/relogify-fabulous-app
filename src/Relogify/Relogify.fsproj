@@ -24,6 +24,7 @@
     <EmbeddedResource Include="sounds\expiration_warning.mp3" />
     <EmbeddedResource Include="sounds\final_siren.mp3" />
     <EmbeddedResource Include="sounds\half_time_beep.mp3" />
+    <EmbeddedResource Include="logo.png" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data.GraphQL.Client" Version="1.0.5" />
