@@ -10,10 +10,12 @@ open Xamarin.Forms
 
 type CommunitiesWithPlayers = Map<string, string []>
 
-type Model =
+type State =
     | Fetching of communities: Community list
     | FetchSuccess of communitiesWithPlayers: CommunitiesWithPlayers * currentCommunityName: string
     | FetchError of communities: Community list * errorMessage: string
+
+type Model = { state: State; currentCommunityName: string }
 
 type Msg =
     | FetchPlayers of Community list
@@ -30,8 +32,8 @@ type OutMsg =
 
 let initModel (communities : Community list): Model * CmdMsg list =
     match communities with
-    | [] -> FetchError ([], "Application settings are empty"), []
-    | _ -> Fetching communities, [FetchPlayersCmdMsg communities]
+    | [] -> { state = FetchError ([], "Application settings are empty"); currentCommunityName = "" }, []
+    | firstCommunity :: _ -> { state = Fetching communities; currentCommunityName = firstCommunity.CommunityName }, [FetchPlayersCmdMsg communities]
 
 // TODO: Remove
 type TempType = {
@@ -71,11 +73,11 @@ let mapCommands: (CmdMsg -> Cmd<Msg>) =
 
 let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg list * OutMsg option =
     match msg with
-    | FetchPlayers communities -> Fetching communities, [FetchPlayersCmdMsg communities], None
-    | PlayersFetched players -> FetchSuccess (players, "test"), [], None
-    | FetchPlayersError (communities, errorMessage) -> FetchError (communities, errorMessage), [], None
+    | FetchPlayers communities -> { model with state = Fetching communities }, [FetchPlayersCmdMsg communities], None
+    | PlayersFetched players -> { model with state = FetchSuccess (players, "test") }, [], None
+    | FetchPlayersError (communities, errorMessage) -> { model with state = FetchError (communities, errorMessage) }, [], None
     | PlayerSelected maybeIndex ->
-        match maybeIndex, model with
+        match maybeIndex, model.state with
         | Some index, FetchSuccess (communitiesWithPlayers, selectedCommunityName) ->
             let selectedCommunity = communitiesWithPlayers.[selectedCommunityName]
             let selectedPlayer = selectedCommunity.[index]
@@ -87,7 +89,7 @@ let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit)
         title = "Players",
         icon = ImagePath "tab_feed.png",
         content =
-            match model with
+            match model.state with
             | Fetching _ -> View.ActivityIndicator(isRunning = true)
             | FetchError (communities, errorMessage) ->
                 View.StackLayout(
@@ -113,7 +115,13 @@ let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit)
                     children = [
                         View.StackLayout(
                             orientation = StackOrientation.Horizontal,
-                            children = (allCommunities |> List.map (fun community -> View.Button(text = community.CommunityName)))
+                            children = (allCommunities
+                                        |> List.map (fun community ->
+                                            View.Button(
+                                                text = community.CommunityName,
+                                                borderWidth = 3.0,
+                                                borderColor = (if community.CommunityName = model.currentCommunityName then Color.Red else Color.Black )
+                                            )))
                         )
                         View.ListView(
                             ref = listViewRef,
