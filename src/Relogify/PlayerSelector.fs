@@ -23,7 +23,7 @@ type Msg =
     | SelectPlayer of selectedPlayer: string
     | Confirm of communityName: string * playerName: string
     | Abort
-    
+
 type CmdMsg =
     | FetchPlayersCmdMsg of communityName: string
 
