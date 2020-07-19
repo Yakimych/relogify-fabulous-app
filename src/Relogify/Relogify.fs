@@ -9,7 +9,7 @@ open Xamarin.Forms
 
 module App =
     type Page =
-        | AddResult of opponentName: string
+        | AddResult of opponentName: string // TODO: communityName
         | Timer
 
     type Model =
