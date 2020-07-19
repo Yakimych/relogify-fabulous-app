@@ -12,7 +12,7 @@ type CommunitiesWithPlayers = Map<string, string []>
 
 type State =
     | Fetching of communities: Community list
-    | FetchSuccess of communitiesWithPlayers: CommunitiesWithPlayers * currentCommunityName: string
+    | FetchSuccess of communitiesWithPlayers: CommunitiesWithPlayers
     | FetchError of communities: Community list * errorMessage: string
 
 type Model = { state: State; currentCommunityName: string }
@@ -22,6 +22,7 @@ type Msg =
     | PlayersFetched of CommunitiesWithPlayers
     | FetchPlayersError of communities: Community list * errorMessage: string
     | PlayerSelected of int option
+    | SelectCurrentCommunity of string
 
 type CmdMsg =
     | FetchPlayersCmdMsg of communities: Community list
@@ -42,6 +43,7 @@ type TempType = {
 }
 
 // TODO: Rewrite without intermediate type
+// TODO: Filter out current player from each list
 let toCommunitiesWithPlayers (fetchedPlayers: MyProvider.Operations.GetPlayersForCommunities.Types.Query_root): CommunitiesWithPlayers =
     let asd = fetchedPlayers.Players |> Array.map (fun p -> { playerName = p.Name; communityName = p.Community.Name })
     let qwe = asd |> Array.groupBy (fun p -> p.communityName) //|> Array.map (fun x -> ())
@@ -71,17 +73,19 @@ let mapCommands: (CmdMsg -> Cmd<Msg>) =
     | FetchPlayersCmdMsg communities -> fetchPlayersCmd communities
     | DeselectPlayerCmdMsg -> deselectPlayer ()
 
+// TODO: currentPlayerName was used to filter out the current player from the list
 let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg list * OutMsg option =
     match msg with
+    | SelectCurrentCommunity communityName -> { model with currentCommunityName = communityName }, [], None
     | FetchPlayers communities -> { model with state = Fetching communities }, [FetchPlayersCmdMsg communities], None
-    | PlayersFetched players -> { model with state = FetchSuccess (players, "test") }, [], None
+    | PlayersFetched communitiesWithPlayers -> { model with state = FetchSuccess communitiesWithPlayers }, [], None
     | FetchPlayersError (communities, errorMessage) -> { model with state = FetchError (communities, errorMessage) }, [], None
     | PlayerSelected maybeIndex ->
         match maybeIndex, model.state with
-        | Some index, FetchSuccess (communitiesWithPlayers, selectedCommunityName) ->
-            let selectedCommunity = communitiesWithPlayers.[selectedCommunityName]
+        | Some index, FetchSuccess communitiesWithPlayers ->
+            let selectedCommunity = communitiesWithPlayers.[model.currentCommunityName]
             let selectedPlayer = selectedCommunity.[index]
-            model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg (selectedPlayer, selectedCommunityName)
+            model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg (selectedPlayer, model.currentCommunityName)
         | _ -> model, [], None
 
 let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit): ViewElement =
@@ -108,8 +112,8 @@ let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit)
                         )
                     ]
                 )
-            | FetchSuccess (communitiesWithPlayers, communityName) ->
-                let players = communitiesWithPlayers.[communityName]
+            | FetchSuccess communitiesWithPlayers ->
+                let players = communitiesWithPlayers.[model.currentCommunityName]
                 View.StackLayout(
                     orientation = StackOrientation.Vertical,
                     children = [
@@ -120,7 +124,8 @@ let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit)
                                             View.Button(
                                                 text = community.CommunityName,
                                                 borderWidth = 3.0,
-                                                borderColor = (if community.CommunityName = model.currentCommunityName then Color.Red else Color.Black )
+                                                borderColor = (if community.CommunityName = model.currentCommunityName then Color.Red else Color.Black ),
+                                                command = (fun _ -> dispatch (SelectCurrentCommunity community.CommunityName))
                                             )))
                         )
                         View.ListView(
