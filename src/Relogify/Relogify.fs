@@ -119,7 +119,7 @@ module App =
             | Some({PlayerName = playerName}) ->
                 let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg playerName
                 match opponentListOutMsg with
-                | Some (OpponentList.PlayerSelectedOutMsg selectedOpponentName) ->
+                | Some (OpponentList.PlayerSelectedOutMsg (selectedOpponentName, selectedCommunityName)) ->
                     model |> pushPage (AddResult selectedOpponentName), opponentListCmdMsgs |> List.map OpponentListCmdMsg
                 | None ->
                     { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
@@ -156,7 +156,6 @@ module App =
             match settingsOutMsg with
             | Some (Settings.OutMsg.SettingsUpdated newSettings) ->
                 updatedModel, (UpdateApplicationSettings newSettings) :: appCmdMsgsFromSettings
-                updatedModel, appCmdMsgsFromSettings
              // TODO: When does this happen? Why is this needed?
 //            | Some (Settings.OutMsg.CommunitySelected community) ->
                  // Refetch the players
@@ -164,6 +163,10 @@ module App =
 //                updatedModel, opponentListCmdMsg :: appCmdMsgsFromSettings
 
             | None -> updatedModel, appCmdMsgsFromSettings
+
+            // TODO: Remove
+            | _ ->
+                updatedModel, appCmdMsgsFromSettings
 
         | FirstRunMsg firstRunMsg ->
             let firstRunModel, firstRunCmdMsgs, maybeFirstRunOutMsg = FirstRun.update model.FirstRunModel firstRunMsg
@@ -234,7 +237,7 @@ module App =
                         selectedTabColor = Color.White,
                         barTextColor = Color.White,
                         children = [
-                            yield OpponentList.view model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
+                            yield OpponentList.view communities model.OpponentListModel (Msg.OpponentListMsg >> dispatch)
 
                             yield (Settings.view
                                 model.SettingsModel
