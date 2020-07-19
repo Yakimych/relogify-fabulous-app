@@ -13,6 +13,19 @@ let getPlayersOperation =
     }
     """>()
 
+let getPlayersForCommunitiesOperation =
+    MyProvider.Operation<"""query getPlayersForCommunities($communityNames: [String!]!) {
+        players(where: { community: { name: { _in: $communityNames } } }) {
+            id
+            name
+            community {
+                id
+                name
+            }
+        }
+    }
+    """>()
+
 let addResultOperation =
     MyProvider.Operation<"""mutation addResult(
         $communityName: String!

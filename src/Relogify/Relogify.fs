@@ -83,7 +83,7 @@ module App =
     let init () =
         let applicationSettings = getApplicationSettings ()
 
-        let opponentListModel, opponentListCmdMsgs = getSelectedCommunity applicationSettings |> OpponentList.initModel
+        let opponentListModel, opponentListCmdMsgs = applicationSettings.Communities |> OpponentList.initModel
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
         { PageStack = []
@@ -156,10 +156,12 @@ module App =
             match settingsOutMsg with
             | Some (Settings.OutMsg.SettingsUpdated newSettings) ->
                 updatedModel, (UpdateApplicationSettings newSettings) :: appCmdMsgsFromSettings
-            | Some (Settings.OutMsg.CommunitySelected community) ->
+                updatedModel, appCmdMsgsFromSettings
+             // TODO: When does this happen? Why is this needed?
+//            | Some (Settings.OutMsg.CommunitySelected community) ->
                  // Refetch the players
-                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (community.CommunityName, community.PlayerName) |> OpponentListCmdMsg
-                updatedModel, opponentListCmdMsg :: appCmdMsgsFromSettings
+//                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (community.CommunityName, community.PlayerName) |> OpponentListCmdMsg
+//                updatedModel, opponentListCmdMsg :: appCmdMsgsFromSettings
 
             | None -> updatedModel, appCmdMsgsFromSettings
 
@@ -174,8 +176,8 @@ module App =
                 updatedModel, [ { Communities = [{ CommunityName = communityName; PlayerName = playerName } ] } |> UpdateApplicationSettings]
 
         | SettingsUpdated newSettings ->
-            let maybeFirstCommunity = (newSettings.Communities |> List.tryHead)
-            let opponentListModel, opponentListCmdMsgs = maybeFirstCommunity |> OpponentList.initModel
+//            let maybeFirstCommunity = (newSettings.Communities |> List.tryHead)
+            let opponentListModel, opponentListCmdMsgs = newSettings.Communities |> OpponentList.initModel
             let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
             { model with ApplicationSettings = newSettings; OpponentListModel = opponentListModel }, cmdMsgs
