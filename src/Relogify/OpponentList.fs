@@ -88,6 +88,28 @@ let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg
             model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg (selectedPlayer, model.currentCommunityName)
         | _ -> model, [], None
 
+let applyTabButtonStyle (isSelected: bool) (button: ViewElement) =
+
+    let baseButton =
+        button
+            .Margin(Thickness(2.0, 5.0))
+            .ButtonCornerRadius(5)
+            .BorderColor(Color.Black)
+            .Height(60.0)
+            .FontSize(FontSize.FontSize(16.0))
+
+    if isSelected then
+        baseButton
+            .BorderWidth(2.0)
+            .BackgroundColor(Color.FromHex("#2196F3"))
+            .TextColor(Color.White)
+            .FontAttributes(FontAttributes.Bold)
+    else
+        baseButton
+            .BorderWidth(1.0)
+            .BackgroundColor(Color.LightGray)
+            .TextColor(Color.Black)
+
 let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit): ViewElement =
     View.ContentPage(
         title = "Players",
@@ -117,16 +139,15 @@ let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit)
                 View.StackLayout(
                     orientation = StackOrientation.Vertical,
                     children = [
-                        View.StackLayout(
-                            orientation = StackOrientation.Horizontal,
+                        View.Grid(
+                            coldefs = [ Star; Star; Star ],
                             children = (allCommunities
-                                        |> List.map (fun community ->
+                                        |> List.mapi (fun column community ->
+                                            let isSelected = community.CommunityName = model.currentCommunityName
                                             View.Button(
                                                 text = community.CommunityName,
-                                                borderWidth = 3.0,
-                                                borderColor = (if community.CommunityName = model.currentCommunityName then Color.Red else Color.Black ),
                                                 command = (fun _ -> dispatch (SelectCurrentCommunity community.CommunityName))
-                                            )))
+                                            ).Column(column) |> applyTabButtonStyle isSelected))
                         )
                         View.ListView(
                             ref = listViewRef,
