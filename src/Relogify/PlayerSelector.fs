@@ -12,7 +12,7 @@ type Model =
     | EditingCommunityName of communityName: string
     | FetchingPlayers of communityName: string
     | FailedFetchingPlayers of communityName: string * errorMessage: string
-    | ChoosingPlayer of players: string list * communityUnderEdit: Community
+    | ChoosingPlayer of players: string list * communityUnderEdit: PlayerInCommunity
 
 type Msg =
     | SetCommunityName of newCommunityName: string

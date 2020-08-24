@@ -11,46 +11,39 @@ open Xamarin.Forms
 type CommunitiesWithPlayers = Map<string, string []>
 
 type State =
-    | Fetching of communities: Community list
+    | Fetching of communities: PlayerInCommunity list
     | FetchSuccess of communitiesWithPlayers: CommunitiesWithPlayers
-    | FetchError of communities: Community list * errorMessage: string
+    | FetchError of communities: PlayerInCommunity list * errorMessage: string
 
 type Model = { state: State; currentCommunityName: string }
 
 type Msg =
-    | FetchPlayers of Community list
+    | FetchPlayers of PlayerInCommunity list
     | PlayersFetched of CommunitiesWithPlayers
-    | FetchPlayersError of communities: Community list * errorMessage: string
+    | FetchPlayersError of communities: PlayerInCommunity list * errorMessage: string
     | PlayerSelected of int option
     | SelectCurrentCommunity of string
 
 type CmdMsg =
-    | FetchPlayersCmdMsg of communities: Community list
+    | FetchPlayersCmdMsg of communities: PlayerInCommunity list
     | DeselectPlayerCmdMsg
 
 type OutMsg =
-    | PlayerSelectedOutMsg of player: string * communityName: string
+    | PlayerSelectedOutMsg of PlayerInCommunity
 
-let initModel (communities : Community list): Model * CmdMsg list =
+let initModel (communities : PlayerInCommunity list): Model * CmdMsg list =
     match communities with
     | [] -> { state = FetchError ([], "Application settings are empty"); currentCommunityName = "" }, []
     | firstCommunity :: _ -> { state = Fetching communities; currentCommunityName = firstCommunity.CommunityName }, [FetchPlayersCmdMsg communities]
 
-// TODO: Remove
-type TempType = {
-    playerName: string
-    communityName: string
-}
-
-// TODO: Rewrite without intermediate type
 // TODO: Filter out current player from each list
 let toCommunitiesWithPlayers (fetchedPlayers: MyProvider.Operations.GetPlayersForCommunities.Types.Query_root): CommunitiesWithPlayers =
-    let asd = fetchedPlayers.Players |> Array.map (fun p -> { playerName = p.Name; communityName = p.Community.Name })
-    let qwe = asd |> Array.groupBy (fun p -> p.communityName) //|> Array.map (fun x -> ())
-    let zxc = qwe |> Array.map (fun (communityName, tempType) -> (communityName, tempType |> Array.map (fun z -> z.playerName)))
+    let asd = fetchedPlayers.Players |> Array.map (fun p -> { PlayerName = p.Name; CommunityName = p.Community.Name })
+    let qwe = asd |> Array.groupBy (fun p -> p.CommunityName) //|> Array.map (fun x -> ())
+    let zxc = qwe |> Array.map (fun (communityName, tempType) -> (communityName, tempType |> Array.map (fun z -> z.PlayerName)))
     zxc |> Map.ofArray
 
-let fetchPlayersCmd (communities: Community list) =
+let fetchPlayersCmd (communities: PlayerInCommunity list) =
     async {
         let communityNames = communities |> List.map (fun c -> c.CommunityName) |> Array.ofList
         let! result = getPlayersForCommunitiesOperation.AsyncRun(runtimeContext, communityNames)
@@ -85,7 +78,7 @@ let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg
         | Some index, FetchSuccess communitiesWithPlayers ->
             let selectedCommunity = communitiesWithPlayers.[model.currentCommunityName]
             let selectedPlayer = selectedCommunity.[index]
-            model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg (selectedPlayer, model.currentCommunityName)
+            model, [DeselectPlayerCmdMsg], Some <| PlayerSelectedOutMsg { PlayerName = selectedPlayer; CommunityName = model.currentCommunityName }
         | _ -> model, [], None
 
 let applyTabButtonStyle (isSelected: bool) (button: ViewElement) =
@@ -110,7 +103,7 @@ let applyTabButtonStyle (isSelected: bool) (button: ViewElement) =
             .BackgroundColor(Color.LightGray)
             .TextColor(Color.Black)
 
-let view (allCommunities: Community list) (model: Model) (dispatch: Msg -> unit): ViewElement =
+let view (allCommunities: PlayerInCommunity list) (model: Model) (dispatch: Msg -> unit): ViewElement =
     View.ContentPage(
         title = "Players",
         icon = ImagePath "tab_feed.png",

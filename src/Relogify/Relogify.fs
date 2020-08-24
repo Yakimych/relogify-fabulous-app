@@ -9,7 +9,7 @@ open Xamarin.Forms
 
 module App =
     type Page =
-        | AddResult of opponentName: string // TODO: communityName
+        | AddResult of PlayerInCommunity
         | Timer
 
     type Model =
@@ -70,14 +70,14 @@ module App =
     let selectOpponentTabIndex = 0
     let settingsTabIndex = 1
 
-    let getPlayerNameIfAddingResult (pageType: Page) =
+    let getPlayerInCommunityIfAddingResult (pageType: Page) =
         match pageType with
-        | AddResult playerName -> Some(playerName)
+        | AddResult playerInCommunity -> Some(playerInCommunity)
         | _ -> None
 
-    let isAddingResultFor (model: Model): string option =
+    let isAddingResultFor (model: Model): PlayerInCommunity option =
         model.PageStack
-        |> List.choose getPlayerNameIfAddingResult
+        |> List.choose getPlayerInCommunityIfAddingResult
         |> List.tryHead
 
     let init () =
@@ -115,23 +115,21 @@ module App =
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
-            match getSelectedCommunity model.ApplicationSettings with
-            | Some({PlayerName = playerName}) ->
-                let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg playerName
-                match opponentListOutMsg with
-                | Some (OpponentList.PlayerSelectedOutMsg (selectedOpponentName, selectedCommunityName)) ->
-                    model |> pushPage (AddResult selectedOpponentName), opponentListCmdMsgs |> List.map OpponentListCmdMsg
-                | None ->
-                    { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
-            | _ ->
-                model, []
+            let currentPlayerInCommunity = model.ApplicationSettings |> getCurrentPlayerInCommunity model.OpponentListModel.currentCommunityName
+            let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg currentPlayerInCommunity.PlayerName
+            match opponentListOutMsg with
+            | Some (OpponentList.PlayerSelectedOutMsg playerInCommunity) ->
+                model |> pushPage (AddResult playerInCommunity), opponentListCmdMsgs |> List.map OpponentListCmdMsg
+            | None ->
+                { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
         | AddResultMsg addResultMsg ->
             // TODO: Refactor/decouple the logic
-            let maybeOpponentName = model |> isAddingResultFor
-            match  maybeOpponentName, getSelectedCommunity model.ApplicationSettings with
-            | Some opponentName, Some community ->
-                let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg community.CommunityName community.PlayerName opponentName
+            let maybeOpponentInCommunity = model |> isAddingResultFor
+            let currentPlayerInCommunity = model.ApplicationSettings |> getCurrentPlayerInCommunity model.OpponentListModel.currentCommunityName
+            match maybeOpponentInCommunity with
+            | Some opponentInCommunity ->
+                let addResultModel, addResultCmdMsgs = AddResult.update model.AddResultModel addResultMsg currentPlayerInCommunity.CommunityName currentPlayerInCommunity.PlayerName opponentInCommunity.PlayerName
                 { model with AddResultModel = addResultModel }, (addResultCmdMsgs |> List.map AddResultCmdMsg) @ [if addResultPageShouldBePopped addResultMsg then yield PopLastPageCmdMsg]
             | _ -> model, []
         | TimerMsg timerMsg ->
@@ -201,11 +199,11 @@ module App =
 
     let renderPage (model: Model) dispatch (page: Page) =
         match page with
-        | AddResult playerNameToAddResultFor ->
-            let currentPlayerOrEmpty = getSelectedCommunity model.ApplicationSettings
-                                        |> Option.map (fun community -> community.PlayerName)
-                                        |> Option.defaultValue ""
-            (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerOrEmpty playerNameToAddResultFor) // TODO: This should not be yielded if the currentPlayer is empty
+        | AddResult playerInCommunityToAddResultsFor ->
+            let selectedCommunityName = playerInCommunityToAddResultsFor.CommunityName
+            let currentPlayerInCommunity = model.ApplicationSettings |> getCurrentPlayerInCommunity selectedCommunityName
+
+            (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerInCommunity.PlayerName playerInCommunityToAddResultsFor.PlayerName)
                 .ToolbarItems([ View.ToolbarItem( text = "Timer", command = (fun () -> dispatch <| PushPage Timer)) ])
         | Timer ->
             Timer.view model.TimerModel (Msg.TimerMsg >> dispatch)
