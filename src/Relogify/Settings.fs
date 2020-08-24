@@ -12,34 +12,34 @@ type Model =
 
 type OutMsg =
     | SettingsUpdated of ApplicationSettings
-    | CommunitySelected of community: Community 
+    | CommunitySelected of community: PlayerInCommunity 
 
 type Msg =
     | OpenDialog of savedCommunityName: string
     | PlayerSelectorMsg of PlayerSelector.Msg
     | CommunityOnSave
     | CommunityOnDelete of communityName : string
-    | CommunityOnSelect of community: Community // TODO: remove when tabs with communities are implemented
+    | CommunityOnSelect of community: PlayerInCommunity // TODO: remove when tabs with communities are implemented
     | SettingsSaved of ApplicationSettings
     | CancelDialog
 
 type CmdMsg =
     | PlayerSelectorCmdMsg of PlayerSelector.CmdMsg
 
-let communitiesMatch (community : Community) (communityToCheck : Community) = 
+let communitiesMatch (community : PlayerInCommunity) (communityToCheck : PlayerInCommunity) = 
     communityToCheck.CommunityName = community.CommunityName
 
-let canDelete (communities : Community list) =
+let canDelete (communities : PlayerInCommunity list) =
     communities |> List.length > 1
 
-let updateCommunity (communityToSave : Community) (communities : Community list) : Community list =
+let updateCommunity (communityToSave : PlayerInCommunity) (communities : PlayerInCommunity list) : PlayerInCommunity list =
     match communities |> List.exists (communitiesMatch communityToSave) with
     | false -> communities @ [communityToSave]
     | true -> communities |> List.map (fun community ->
         if communitiesMatch community communityToSave then communityToSave else community
     )
 
-let deleteCommunity (communityNameToDelete : string) (communities : Community list) =
+let deleteCommunity (communityNameToDelete : string) (communities : PlayerInCommunity list) =
     if canDelete communities then
         communities |> List.filter (fun community -> community.CommunityName <> communityNameToDelete)
     else 
@@ -48,7 +48,7 @@ let deleteCommunity (communityNameToDelete : string) (communities : Community li
 let deleteCommunityFromSettings (currentSettings: ApplicationSettings) (communityName : string) =
     { currentSettings with Communities = currentSettings.Communities |> deleteCommunity communityName }
 
-let addOrUpdateCommunityFromSettings (currentSettings: ApplicationSettings) (community: Community) =
+let addOrUpdateCommunityFromSettings (currentSettings: ApplicationSettings) (community: PlayerInCommunity) =
     { currentSettings with Communities = currentSettings.Communities |> updateCommunity community }
 
 let initModel (communityNameHasBeenSaved: bool) =
@@ -114,7 +114,7 @@ let dialogBody (model: Model) dispatch =
             | AddingCommunity playerSelectorModel -> [ PlayerSelector.view playerSelectorModel dispatch ]
     )
 
-let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: Community) =
+let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: PlayerInCommunity) =
     View.ViewCell
         (view =
             View.Grid(
@@ -143,7 +143,7 @@ let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: Communit
                 )]
         )
 
-let view (model: Model) (communities: Community list) dispatch =
+let view (model: Model) (communities: PlayerInCommunity list) dispatch =
     View.ContentPage
         (title = "Settings", icon = ImagePath "tab_settings.png",
          content =

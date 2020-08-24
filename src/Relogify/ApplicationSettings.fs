@@ -3,12 +3,12 @@ module Relogify.ApplicationSettings
 open Xamarin.Forms
 open Newtonsoft.Json
 
-type Community =
+type PlayerInCommunity =
     { CommunityName: string
       PlayerName: string }
 
 type ApplicationSettings =
-    { Communities: Community list }
+    { Communities: PlayerInCommunity list }
 
 let ApplicationSettingsStorageKey = "app_settings_key"
 
@@ -38,7 +38,7 @@ let addCommunityToSettings (communityName : string) (playerName : string) =
     saveApplicationSettings { currentSettings with Communities = [newCommunity] @ currentSettings.Communities }
 
 let areSet (applicationSettings: ApplicationSettings) =
-    applicationSettings.Communities |> List.isEmpty |> not 
+    applicationSettings.Communities |> List.isEmpty |> not
 
-let getSelectedCommunity (settings : ApplicationSettings) =
-    settings.Communities |> List.tryHead 
+let getCurrentPlayerInCommunity (communityName: string) (settings : ApplicationSettings) =
+    settings.Communities |> List.find (fun s -> s.CommunityName = communityName)
