@@ -12,14 +12,12 @@ type Model =
 
 type OutMsg =
     | SettingsUpdated of ApplicationSettings
-    | CommunitySelected of community: PlayerInCommunity
 
 type Msg =
     | OpenDialog of savedCommunityName: string
     | PlayerSelectorMsg of PlayerSelector.Msg
     | CommunityOnSave
     | CommunityOnDelete of communityName : string
-    | CommunityOnSelect of community: PlayerInCommunity // TODO: remove when tabs with communities are implemented
     | SettingsSaved of ApplicationSettings
     | CancelDialog
 
@@ -65,9 +63,6 @@ let update (model: Model) (currentSettings: ApplicationSettings) (msg: Msg): Mod
     match (model, msg) with
     | (DialogClosed, OpenDialog communityName) ->
         AddingCommunity (PlayerSelector.EditingCommunityName communityName), [], None
-
-    | (DialogClosed, CommunityOnSelect community) ->
-        DialogClosed, [], CommunitySelected community |> Some
 
     | (DialogClosed, CommunityOnDelete communityNameToDelete) ->
         DialogClosed, [], deleteCommunityFromSettings currentSettings communityNameToDelete |> SettingsUpdated |> Some
@@ -154,7 +149,6 @@ let view (model: Model) (communities: PlayerInCommunity list) dispatch =
                          (children =
                              [ View.ListView(
                                 items = (communities |> List.map (viewCommunityListItem (canDelete communities) dispatch)),
-                                itemTapped = (fun index -> communities |> List.item index |> CommunityOnSelect |> dispatch),
                                 hasUnevenRows = true
                                )
                                View.Button(

@@ -153,17 +153,7 @@ module App =
             match settingsOutMsg with
             | Some (Settings.OutMsg.SettingsUpdated newSettings) ->
                 updatedModel, (UpdateApplicationSettings newSettings) :: appCmdMsgsFromSettings
-             // TODO: When does this happen? Why is this needed?
-//            | Some (Settings.OutMsg.CommunitySelected community) ->
-                 // Refetch the players
-//                let opponentListCmdMsg = OpponentList.FetchPlayersCmdMsg (community.CommunityName, community.PlayerName) |> OpponentListCmdMsg
-//                updatedModel, opponentListCmdMsg :: appCmdMsgsFromSettings
-
             | None -> updatedModel, appCmdMsgsFromSettings
-
-            // TODO: Remove
-            | _ ->
-                updatedModel, appCmdMsgsFromSettings
 
         | FirstRunMsg firstRunMsg ->
             let firstRunModel, firstRunCmdMsgs, maybeFirstRunOutMsg = FirstRun.update model.FirstRunModel firstRunMsg
