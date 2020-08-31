@@ -88,6 +88,7 @@ let updateResultModel (resultModel: ResultModel) (msg: Msg): ResultModel =
     | ToggleExtraTime -> { resultModel with ExtraTime = not resultModel.ExtraTime }
     | _ -> resultModel
 
+// TODO: Pass 2 playerInCommunity records instead of 3 strings?
 let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match model.state, msg with
     | (EditingResult, SetOwnPoints _)

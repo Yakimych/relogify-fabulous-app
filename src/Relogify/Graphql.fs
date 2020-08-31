@@ -26,6 +26,8 @@ let getPlayersForCommunitiesOperation =
     }
     """>()
 
+type PlayersForCommunities = MyProvider.Operations.GetPlayersForCommunities.Types.Query_root
+
 let addResultOperation =
     MyProvider.Operation<"""mutation addResult(
         $communityName: String!
