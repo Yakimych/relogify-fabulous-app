@@ -12,7 +12,7 @@ type Model =
 
 type OutMsg =
     | SettingsUpdated of ApplicationSettings
-    | CommunitySelected of community: PlayerInCommunity 
+    | CommunitySelected of community: PlayerInCommunity
 
 type Msg =
     | OpenDialog of savedCommunityName: string
@@ -26,7 +26,7 @@ type Msg =
 type CmdMsg =
     | PlayerSelectorCmdMsg of PlayerSelector.CmdMsg
 
-let communitiesMatch (community : PlayerInCommunity) (communityToCheck : PlayerInCommunity) = 
+let communitiesMatch (community : PlayerInCommunity) (communityToCheck : PlayerInCommunity) =
     communityToCheck.CommunityName = community.CommunityName
 
 let canDelete (communities : PlayerInCommunity list) =
@@ -42,7 +42,7 @@ let updateCommunity (communityToSave : PlayerInCommunity) (communities : PlayerI
 let deleteCommunity (communityNameToDelete : string) (communities : PlayerInCommunity list) =
     if canDelete communities then
         communities |> List.filter (fun community -> community.CommunityName <> communityNameToDelete)
-    else 
+    else
         communities
 
 let deleteCommunityFromSettings (currentSettings: ApplicationSettings) (communityName : string) =
@@ -80,7 +80,7 @@ let update (model: Model) (currentSettings: ApplicationSettings) (msg: Msg): Mod
         | (_, otherMsg) ->
             let newDialogState, cmdMsgList = PlayerSelector.performTransition dialogState otherMsg
             AddingCommunity newDialogState, cmdMsgList |> List.map PlayerSelectorCmdMsg, None
-    
+
     | (_, _) -> model, [], None
 
 let dialogIsOpen =
@@ -137,13 +137,14 @@ let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: PlayerIn
                ),
         contextActions = [
                 View.MenuItem(
-                    text = "Delete", 
-                    command = (fun _ -> dispatch (CommunityOnDelete community.CommunityName)), 
+                    text = "Delete",
+                    command = (fun _ -> dispatch (CommunityOnDelete community.CommunityName)),
                     commandCanExecute = isDeleteVisible
                 )]
         )
 
 let view (model: Model) (communities: PlayerInCommunity list) dispatch =
+    let canAddCommunity = communities |> List.length < 3
     View.ContentPage
         (title = "Settings", icon = ImagePath "tab_settings.png",
          content =
@@ -157,15 +158,16 @@ let view (model: Model) (communities: PlayerInCommunity list) dispatch =
                                 hasUnevenRows = true
                                )
                                View.Button(
-                                    text = "Add", 
-                                    backgroundColor = Color.Orange, 
+                                    text = "Add",
+                                    backgroundColor = Color.Orange,
                                     textColor = Color.Black,
-                                    fontSize = FontSize.Named(NamedSize.Large), 
+                                    fontSize = FontSize.Named(NamedSize.Large),
                                     margin = Thickness(15.0),
-                                    height = 60.0, 
+                                    height = 60.0,
                                     cornerRadius = 10,
                                     borderWidth = 2.0,
-                                    command = (fun _ -> dispatch (OpenDialog ""))
+                                    command = (fun _ -> dispatch (OpenDialog "")),
+                                    commandCanExecute = canAddCommunity
                                 )
                                    .LayoutFlags(AbsoluteLayoutFlags.PositionProportional)
                                    .LayoutBounds(Rectangle(1.0, 1.0, 80.0, 80.0)) ])

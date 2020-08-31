@@ -6,8 +6,6 @@ open Relogify.ApplicationSettings
 open Relogify.Graphql
 open Xamarin.Forms
 
-//type CommunityWithPlayers = { communityName: string; playerNames: string list }
-
 type CommunitiesWithPlayers = Map<string, string []>
 
 type State =
@@ -36,22 +34,22 @@ let initModel (communities : PlayerInCommunity list): Model * CmdMsg list =
     | [] -> { state = FetchError ([], "Application settings are empty"); currentCommunityName = "" }, []
     | firstCommunity :: _ -> { state = Fetching communities; currentCommunityName = firstCommunity.CommunityName }, [FetchPlayersCmdMsg communities]
 
-// TODO: Filter out current player from each list
-let toCommunitiesWithPlayers (fetchedPlayers: MyProvider.Operations.GetPlayersForCommunities.Types.Query_root): CommunitiesWithPlayers =
-    let asd = fetchedPlayers.Players |> Array.map (fun p -> { PlayerName = p.Name; CommunityName = p.Community.Name })
-    let qwe = asd |> Array.groupBy (fun p -> p.CommunityName) //|> Array.map (fun x -> ())
-    let zxc = qwe |> Array.map (fun (communityName, tempType) -> (communityName, tempType |> Array.map (fun z -> z.PlayerName)))
-    zxc |> Map.ofArray
+let toCommunitiesWithPlayers (selectedPlayersInCommunities: PlayerInCommunity list) (fetchedPlayers: PlayersForCommunities): CommunitiesWithPlayers =
+    fetchedPlayers.Players
+    |> Array.map (fun p -> { PlayerName = p.Name; CommunityName = p.Community.Name })
+    |> Array.where (fun p -> selectedPlayersInCommunities |> List.contains p |> not)
+    |> Array.groupBy (fun p -> p.CommunityName)
+    |> Array.map (fun (communityName, playerInCommunity) -> (communityName, playerInCommunity |> Array.map (fun z -> z.PlayerName)))
+    |> Map.ofArray
 
-let fetchPlayersCmd (communities: PlayerInCommunity list) =
+let fetchPlayersCmd (playersInCommunities: PlayerInCommunity list) =
     async {
-        let communityNames = communities |> List.map (fun c -> c.CommunityName) |> Array.ofList
+        let communityNames = playersInCommunities |> List.map (fun c -> c.CommunityName) |> Array.ofList
         let! result = getPlayersForCommunitiesOperation.AsyncRun(runtimeContext, communityNames)
         return
             match result.Data with
-//            | Some data -> data.Players |> List.ofArray |> List.map (fun p -> p.Name) |> List.except [currentPlayerName] |> PlayersFetched
-            | Some data -> data |> toCommunitiesWithPlayers |> PlayersFetched
-            | None -> FetchPlayersError (communities, sprintf "Error fetching players for communities '%A'. Please check your internet connection and try again. If the problem persists, check your settings and restart the app" communityNames)
+            | Some data -> data |> (toCommunitiesWithPlayers playersInCommunities) |> PlayersFetched
+            | None -> FetchPlayersError (playersInCommunities, sprintf "Error fetching players for communities '%A'. Please check your internet connection and try again. If the problem persists, check your settings and restart the app" communityNames)
     }
     |> Cmd.ofAsyncMsg
 
@@ -66,8 +64,7 @@ let mapCommands: (CmdMsg -> Cmd<Msg>) =
     | FetchPlayersCmdMsg communities -> fetchPlayersCmd communities
     | DeselectPlayerCmdMsg -> deselectPlayer ()
 
-// TODO: currentPlayerName was used to filter out the current player from the list
-let update (model: Model) (msg: Msg) (currentPlayerName: string): Model * CmdMsg list * OutMsg option =
+let update (model: Model) (msg: Msg): Model * CmdMsg list * OutMsg option =
     match msg with
     | SelectCurrentCommunity communityName -> { model with currentCommunityName = communityName }, [], None
     | FetchPlayers communities -> { model with state = Fetching communities }, [FetchPlayersCmdMsg communities], None

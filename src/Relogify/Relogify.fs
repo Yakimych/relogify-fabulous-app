@@ -115,8 +115,7 @@ module App =
     let update msg (model: Model) =
         match msg with
         | OpponentListMsg opponentListMsg ->
-            let currentPlayerInCommunity = model.ApplicationSettings |> getCurrentPlayerInCommunity model.OpponentListModel.currentCommunityName
-            let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg currentPlayerInCommunity.PlayerName
+            let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
             match opponentListOutMsg with
             | Some (OpponentList.PlayerSelectedOutMsg playerInCommunity) ->
                 model |> pushPage (AddResult playerInCommunity), opponentListCmdMsgs |> List.map OpponentListCmdMsg
@@ -177,7 +176,6 @@ module App =
                 updatedModel, [ { Communities = [{ CommunityName = communityName; PlayerName = playerName } ] } |> UpdateApplicationSettings]
 
         | SettingsUpdated newSettings ->
-//            let maybeFirstCommunity = (newSettings.Communities |> List.tryHead)
             let opponentListModel, opponentListCmdMsgs = newSettings.Communities |> OpponentList.initModel
             let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
