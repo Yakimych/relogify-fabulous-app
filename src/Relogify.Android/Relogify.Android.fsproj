@@ -135,6 +135,18 @@
       <HintPath>..\packages\Fabulous.0.57.0\lib\netstandard2.0\Fabulous.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Fabulous.LiveUpdate, Version=0.57.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Fabulous.LiveUpdate.0.57.0\lib\netstandard2.0\Fabulous.LiveUpdate.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Fabulous.XamarinForms, Version=0.57.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Fabulous.XamarinForms.0.57.0\lib\netstandard2.0\Fabulous.XamarinForms.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Fabulous.XamarinForms.LiveUpdate, Version=0.57.0.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\Fabulous.XamarinForms.LiveUpdate.0.57.0\lib\netstandard2.0\Fabulous.XamarinForms.LiveUpdate.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FormsViewGroup, Version=2.0.0.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\Xamarin.Forms.4.8.0.1364\lib\MonoAndroid90\FormsViewGroup.dll</HintPath>
       <Private>True</Private>
@@ -298,15 +310,6 @@
     </Reference>
     <Reference Include="Xamarin.Essentials">
       <HintPath>..\packages\Xamarin.Essentials.1.5.3.2\lib\monoandroid90\Xamarin.Essentials.dll</HintPath>
-    </Reference>
-    <Reference Include="Fabulous.LiveUpdate">
-      <HintPath>..\packages\Fabulous.LiveUpdate.0.54.1\lib\netstandard2.0\Fabulous.LiveUpdate.dll</HintPath>
-    </Reference>
-    <Reference Include="Fabulous.XamarinForms">
-      <HintPath>..\packages\Fabulous.XamarinForms.0.54.1\lib\netstandard2.0\Fabulous.XamarinForms.dll</HintPath>
-    </Reference>
-    <Reference Include="Fabulous.XamarinForms.LiveUpdate">
-      <HintPath>..\packages\Fabulous.XamarinForms.LiveUpdate.0.54.1\lib\netstandard2.0\Fabulous.XamarinForms.LiveUpdate.dll</HintPath>
     </Reference>
     <ProjectReference Include="..\Relogify\Relogify.fsproj">
       <Project>{C6112E23-56E4-4E15-BF0E-2F831C97C169}</Project>

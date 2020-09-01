@@ -125,7 +125,7 @@ let applyBaseButtonStyle (button: ViewElement) =
         .ButtonCornerRadius(10)
         .BorderWidth(2.0)
         .BorderColor(Color.Black)
-        .FontSize(Named(NamedSize.Large))
+        .FontSize(FontSize.fromNamedSize(NamedSize.Large))
 
 let pointSelector (selectedNumberOfPoints: int) setPoints =
     View.ScrollView(
@@ -162,8 +162,8 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                          coldefs = [ Star; Star ],
                          rowdefs = [ Auto; Auto; Star ],
                          children = [
-                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = ownName, fontSize = FontSize.Named(NamedSize.Large)).Column(0).Row(0)
-                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.Named(NamedSize.Large)).Column(1).Row(0)
+                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = ownName, fontSize = FontSize.fromNamedSize(NamedSize.Large)).Column(0).Row(0)
+                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large)).Column(1).Row(0)
 
                              View.Entry(
                                  isEnabled = not isAddingResult,

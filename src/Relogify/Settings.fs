@@ -119,13 +119,13 @@ let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: PlayerIn
                          coldefs = [ Auto; Star ],
                          rowdefs = [ for _ in 1 .. 3 -> Auto ],
                          children =
-                             [ View.Label(text = "Community: ", fontSize = FontSize.Named(NamedSize.Large),
+                             [ View.Label(text = "Community: ", fontSize = FontSize.fromNamedSize(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(0)
-                               View.Label(text = community.CommunityName, fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = community.CommunityName, fontSize = FontSize.fromNamedSize(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(0).Column(1)
-                               View.Label(text = "Player: ", fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = "Player: ", fontSize = FontSize.fromNamedSize(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(0)
-                               View.Label(text = community.PlayerName, fontSize = FontSize.Named(NamedSize.Large),
+                               View.Label(text = community.PlayerName, fontSize = FontSize.fromNamedSize(NamedSize.Large),
                                           margin = Thickness(left = 15.0, top = 10.0, right = 0.0, bottom = 0.0)).Row(1).Column(1)
                                ])
                     ]
@@ -141,7 +141,7 @@ let viewCommunityListItem (isDeleteVisible : bool) dispatch (community: PlayerIn
 let view (model: Model) (communities: PlayerInCommunity list) dispatch =
     let canAddCommunity = communities |> List.length < 3
     View.ContentPage
-        (title = "Settings", icon = ImagePath "tab_settings.png",
+        (title = "Settings", icon = Image.fromPath "tab_settings.png",
          content =
              View.Grid
                  (children =
@@ -155,7 +155,7 @@ let view (model: Model) (communities: PlayerInCommunity list) dispatch =
                                     text = "Add",
                                     backgroundColor = Color.Orange,
                                     textColor = Color.Black,
-                                    fontSize = FontSize.Named(NamedSize.Large),
+                                    fontSize = FontSize.fromNamedSize(NamedSize.Large),
                                     margin = Thickness(15.0),
                                     height = 60.0,
                                     cornerRadius = 10,

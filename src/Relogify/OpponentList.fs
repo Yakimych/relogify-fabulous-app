@@ -86,7 +86,7 @@ let applyTabButtonStyle (isSelected: bool) (button: ViewElement) =
             .ButtonCornerRadius(5)
             .BorderColor(Color.Black)
             .Height(60.0)
-            .FontSize(FontSize.FontSize(16.0))
+            .FontSize(FontSize.fromValue(16.0))
 
     if isSelected then
         baseButton
@@ -103,7 +103,7 @@ let applyTabButtonStyle (isSelected: bool) (button: ViewElement) =
 let view (allCommunities: PlayerInCommunity list) (model: Model) (dispatch: Msg -> unit): ViewElement =
     View.ContentPage(
         title = "Players",
-        icon = ImagePath "tab_feed.png",
+        icon = Image.fromPath "tab_feed.png",
         content =
             match model.state with
             | Fetching _ -> View.ActivityIndicator(isRunning = true)

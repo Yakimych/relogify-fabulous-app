@@ -16,7 +16,7 @@ let openRelogifyInBrowser () = openBrowserOnTap relogifyUrl
 
 let aboutRelogify () =
     let image = ImageSource.FromResource("Relogify.logo.png", Assembly.GetExecutingAssembly())
-    let imageSource = ImageSrc image
+    let imageSource = Image.fromImageSource image
 
     View.StackLayout(
         margin = Thickness(20.0),
@@ -25,7 +25,7 @@ let aboutRelogify () =
                 text = "Relogify",
                 margin = Thickness(0., 0., 0., 10.0),
                 fontAttributes = FontAttributes.Bold,
-                fontSize = FontSize.Named(NamedSize.Large),
+                fontSize = FontSize.fromNamedSize(NamedSize.Large),
                 horizontalOptions = LayoutOptions.Center)
 
             View.Label(text = "Save all match results, analyze, view head-to-head records, statistics and more.")
@@ -34,10 +34,10 @@ let aboutRelogify () =
 
             View.StackLayout(
                 children = [
-                    View.Label(text = "- Weekly Results and Leaderboards", fontSize = FontSize.Named(NamedSize.Small))
-                    View.Label(text = "- Head-to-Head results and statistics", fontSize = FontSize.Named(NamedSize.Small))
-                    View.Label(text = "- Individual player results, stats and winning streaks", fontSize = FontSize.Named(NamedSize.Small))
-                    View.Label(text = "- All-time history and Elo ratings", fontSize = FontSize.Named(NamedSize.Small))
+                    View.Label(text = "- Weekly Results and Leaderboards", fontSize = FontSize.fromNamedSize(NamedSize.Small))
+                    View.Label(text = "- Head-to-Head results and statistics", fontSize = FontSize.fromNamedSize(NamedSize.Small))
+                    View.Label(text = "- Individual player results, stats and winning streaks", fontSize = FontSize.fromNamedSize(NamedSize.Small))
+                    View.Label(text = "- All-time history and Elo ratings", fontSize = FontSize.fromNamedSize(NamedSize.Small))
                 ])
 
             View.Label(
@@ -54,6 +54,6 @@ let aboutRelogify () =
 let view () =
     View.ContentPage(
         title = "About",
-        icon = ImagePath "tab_about.png",
+        icon = Image.fromPath "tab_about.png",
         content = aboutRelogify ()
     )
