@@ -164,7 +164,7 @@ let applyTimerButtonStyle (button: ViewElement) =
         .ButtonCornerRadius(10)
         .BorderWidth(2.0)
         .Height(60.0)
-        .FontSize(FontSize.FontSize(36.0))
+        .FontSize(FontSize.fromValue(36.0))
 
 let view (model: Model) dispatch =
     View.ContentPage(
@@ -190,7 +190,7 @@ let view (model: Model) dispatch =
                                             verticalOptions = LayoutOptions.Center,
                                             margin = Thickness(15.0),
                                             textColor = Color.White,
-                                            fontSize = FontSize.FontSize(72.0)
+                                            fontSize = FontSize.fromValue(72.0)
                                         )
                                     ]
                                 ).Column(1)
@@ -207,7 +207,7 @@ let view (model: Model) dispatch =
                                             toggled = (fun _ -> dispatch ToggleExtraTime)
                                         )
                                         View.Label(
-                                            fontSize = FontSize.Named(NamedSize.Small),
+                                            fontSize = FontSize.fromNamedSize(NamedSize.Small),
                                             text = sprintf "Extra%sTime" Environment.NewLine,
                                             textColor = Color.White
                                         )

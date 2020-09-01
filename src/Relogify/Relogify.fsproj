@@ -28,10 +28,10 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.Data.GraphQL.Client" Version="1.0.5" />
-    <PackageReference Include="Xamarin.Forms" Version="4.7.0.968" />
+    <PackageReference Include="Xamarin.Forms" Version="4.8.0.1364" />
     <PackageReference Include="Xamarin.Essentials" Version="1.5.3.2" />
-    <PackageReference Include="Fabulous.XamarinForms" Version="0.54.1" />
-    <PackageReference Include="Fabulous.XamarinForms.LiveUpdate" Version="0.54.1" />
+    <PackageReference Include="Fabulous.XamarinForms" Version="0.57.0" />
+    <PackageReference Include="Fabulous.XamarinForms.LiveUpdate" Version="0.57.0" />
     <PackageReference Include="Xam.Plugin.SimpleAudioPlayer" Version="1.4.0" />
     <PackageReference Include="FSharp.Core" Version="4.6.2" />
     <PackageReference Update="FSharp.Core" Version="4.7.2" /> <!-- workaround for VSMac bug https://github.com/mono/monodevelop/pull/5137 -->

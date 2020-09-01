@@ -184,7 +184,7 @@ let view (model: Model) (dispatch: Msg -> unit): ViewElement =
                           textColor = Color.White,
                           horizontalOptions = LayoutOptions.FillAndExpand,
                           verticalOptions = LayoutOptions.FillAndExpand,
-                          fontSize = FontSize.Named(NamedSize.Large),
+                          fontSize = FontSize.fromNamedSize(NamedSize.Large),
                           margin = Thickness(20.0, 10.0, 0.0, 10.0)
                       )
                 ]
