@@ -157,13 +157,12 @@ let view (model: Model) (communities: PlayerInCommunity list) dispatch =
                                     textColor = Color.Black,
                                     fontSize = FontSize.fromNamedSize(NamedSize.Large),
                                     margin = Thickness(15.0),
-                                    height = 60.0,
                                     cornerRadius = 10,
                                     borderWidth = 2.0,
                                     command = (fun _ -> dispatch (OpenDialog "")),
                                     commandCanExecute = canAddCommunity
                                 )
-                                   .LayoutFlags(AbsoluteLayoutFlags.PositionProportional)
-                                   .LayoutBounds(Rectangle(1.0, 1.0, 80.0, 80.0)) ])
+                                .LayoutFlags(AbsoluteLayoutFlags.PositionProportional)
+                                .LayoutBounds(Rectangle(1.0, 1.0, 120.0, 80.0)) ])
                        dialogBackdrop (model |> dialogIsOpen)
                        dialogBody model (PlayerSelectorMsg >> dispatch) ]))

@@ -84,19 +84,18 @@ let applyTabButtonStyle (isSelected: bool) (button: ViewElement) =
         button
             .Margin(Thickness(2.0, 5.0))
             .ButtonCornerRadius(5)
+            .HeightRequest(60.0)
             .BorderColor(Color.Black)
-            .Height(60.0)
-            .FontSize(FontSize.fromValue(16.0))
+            .BorderWidth(1.0)
+            .FontSize(FontSize.fromNamedSize(NamedSize.Small))
 
     if isSelected then
         baseButton
-            .BorderWidth(2.0)
             .BackgroundColor(Color.FromHex("#2196F3"))
             .TextColor(Color.White)
             .FontAttributes(FontAttributes.Bold)
     else
         baseButton
-            .BorderWidth(1.0)
             .BackgroundColor(Color.LightGray)
             .TextColor(Color.Black)
 
