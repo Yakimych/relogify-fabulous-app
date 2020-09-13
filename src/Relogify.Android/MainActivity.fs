@@ -12,13 +12,61 @@ open Android.Widget
 open Android.OS
 open Xamarin.Forms.Platform.Android
 
+open Android.Util
+open Android.Gms.Common
+
 [<Activity (Label = "Relogify.Android", Icon = "@mipmap/icon", Theme = "@style/MainTheme", MainLauncher = true, ConfigurationChanges = (ConfigChanges.ScreenSize ||| ConfigChanges.Orientation), ScreenOrientation = ScreenOrientation.Portrait)>]
 type MainActivity() =
     inherit FormsAppCompatActivity()
+
+    let TAG: string = "MainActivity"
+    static member CHANNEL_ID: string = "my_notification_channel"
+
+    member private this.CreateNotificationChannel () =
+        if Build.VERSION.SdkInt >= BuildVersionCodes.O then
+            let channelName = MainActivity.CHANNEL_ID
+            let channelDescription = ""
+            let channel = new NotificationChannel(MainActivity.CHANNEL_ID, channelName, NotificationImportance.Default)
+            channel.Description <- channelDescription
+
+            let notificationManager = this.GetSystemService(Context.NotificationService) :?> NotificationManager
+            notificationManager.CreateNotificationChannel(channel)
+        else
+            ()
+
+    member this.IsPlayServicesAvailable () =
+        let resultCode = GoogleApiAvailability.Instance.IsGooglePlayServicesAvailable(this)
+        if resultCode <> ConnectionResult.Success then
+            if GoogleApiAvailability.Instance.IsUserResolvableError(resultCode) then
+                Log.Debug(TAG, GoogleApiAvailability.Instance.GetErrorString(resultCode)) |> ignore
+            else
+                Log.Debug(TAG, "This device is not supported") |> ignore
+                this.Finish() |> ignore
+            false
+        else
+            Log.Debug(TAG, "Google Play Services is available.") |> ignore
+            true
+
+
     override this.OnCreate (bundle: Bundle) =
         FormsAppCompatActivity.TabLayoutResource <- Resources.Layout.Tabbar
         FormsAppCompatActivity.ToolbarResource <- Resources.Layout.Toolbar
         base.OnCreate (bundle)
+
+        if this.Intent.Extras <> null then
+            this.Intent.Extras.KeySet()
+            |> Seq.iter (fun key ->
+                if key <> null then
+                    let value = this.Intent.Extras.GetString(key)
+                    Log.Debug(TAG, sprintf "Key: '%s'; Value: '%s'." key value) |> ignore
+                else
+                    ()
+            )
+        else
+            ()
+
+        this.IsPlayServicesAvailable() |> ignore
+        this.CreateNotificationChannel()
 
         Xamarin.Essentials.Platform.Init(this, bundle)
 

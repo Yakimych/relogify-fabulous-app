@@ -28,7 +28,13 @@ let saveApplicationSettings (appSettings : ApplicationSettings) =
     let json = JsonConvert.SerializeObject(appSettings)
     Application.Current.Properties.[ApplicationSettingsStorageKey] <- json
 
-    Application.Current.SavePropertiesAsync()
+    async {
+        do! Application.Current.SavePropertiesAsync () |> Async.AwaitTask
+
+        let messagingService = DependencyService.Get<IMessagingService>()
+        do! messagingService.SendRegistrationToServer ()
+    } |> Async.StartAsTask // TODO: Keep it as async? Note: might be a problem with race conditions right after adding community
+
 
 let addCommunityToSettings (communityName : string) (playerName : string) =
     let currentSettings = getApplicationSettings ()

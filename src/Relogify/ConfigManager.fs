@@ -28,6 +28,10 @@ let getSettingStringValue (settingName: string) (settingsObject: JObject) =
     node.ToString()
 
 let getApiUrl () =
-    let settingsObject = getSettingsObject()
-    settingsObject |> getSettingStringValue "ApiUrl"
+    getSettingsObject() |> getSettingStringValue "ApiUrl"
 
+let getListenConnectionString () =
+    getSettingsObject() |> getSettingStringValue "ListenConnectionString"
+
+let getNotificationHubName () =
+    getSettingsObject() |> getSettingStringValue "NotificationHubName"
