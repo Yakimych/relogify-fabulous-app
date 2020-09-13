@@ -8,6 +8,7 @@
   <ItemGroup>
     <Compile Include="Helpers.fs" />
     <Compile Include="SoundPlayer.fs" />
+    <Compile Include="IMessagingService.fs" />
     <Compile Include="ConfigManager.fs" />
     <Compile Include="ApplicationSettings.fs" />
     <Compile Include="Graphql.fs" />
