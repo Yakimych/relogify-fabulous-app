@@ -6,6 +6,7 @@ open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
 open Xamarin.Forms
 open Relogify.Graphql
+open FSharp.Data
 
 type ChallengeModel =
     | NotChallenged
@@ -111,16 +112,27 @@ let addChallengeToLocalStorage (challengedPlayer: PlayerInCommunity) =
         return newChallengeList
     }
 
+let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityName: string) =
+    let notificationFunctionBaseUrl = ConfigManager.getNotificationFunctionBaseUrl ()
+    let challengeFunctionName = "SendChallenge"
+    let challengeFunctionCode = ConfigManager.getChallengeFunctionCode ()
+    let challengeUrl = sprintf "%s/%s?code=%s&challengeFrom=%s&challengeTo=%s&communityName=%s" notificationFunctionBaseUrl challengeFunctionName challengeFunctionCode fromPlayer toPlayer communityName
+
+    Http.AsyncRequest(challengeUrl)
+
 let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
     async {
         // TODO: Remove
         do! System.Threading.Tasks.Task.Delay(1000) |> Async.AwaitTask
 
         let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
+        let! response = performChallengeApiCall fromPlayer toPlayer communityName
 
-        // TODO: Make API call to Azure function
-
-        return ChallengeInitiated newChallengeList
+        if response.StatusCode >= 200 && response.StatusCode < 300 then
+            return ChallengeInitiated newChallengeList
+        else
+            // TODO: Handle "Challenge failed"
+            return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
 
