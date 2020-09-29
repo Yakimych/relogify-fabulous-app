@@ -35,3 +35,9 @@ let getListenConnectionString () =
 
 let getNotificationHubName () =
     getSettingsObject() |> getSettingStringValue "NotificationHubName"
+
+let getNotificationFunctionBaseUrl () =
+    getSettingsObject() |> getSettingStringValue "NotificationFunctionBaseUrl"
+
+let getChallengeFunctionCode () =
+    getSettingsObject() |> getSettingStringValue "ChallengeFunctionCode"
