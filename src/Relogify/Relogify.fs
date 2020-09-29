@@ -82,6 +82,7 @@ module App =
 
     let init () =
         let applicationSettings = getApplicationSettings ()
+        let issuedChallenges = getChallenges ()
 
         let opponentListModel, opponentListCmdMsgs = applicationSettings.Communities |> OpponentList.initModel
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
@@ -89,7 +90,7 @@ module App =
         { PageStack = []
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel = opponentListModel
-          AddResultModel = AddResult.initModel
+          AddResultModel = AddResult.initModel ()
           TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
           FirstRunModel = FirstRun.initModel ()
@@ -105,7 +106,7 @@ module App =
             let newModel = { model with PageStack = restOfPages }
             match pageToPop with
             | Timer -> { newModel with TimerModel = Timer.initModel }
-            | AddResult _ -> { newModel with AddResultModel = AddResult.initModel }
+            | AddResult _ -> { newModel with AddResultModel = AddResult.initModel () }
 
     let addResultPageShouldBePopped (addResultMsg: AddResult.Msg): bool =
         match addResultMsg with
@@ -118,6 +119,8 @@ module App =
             let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
             match opponentListOutMsg with
             | Some (OpponentList.PlayerSelectedOutMsg playerInCommunity) ->
+                // TODO: Read challenges here?
+                // TODO: Alternative - read all challenges, no matter what opponent, and match inside the AddResult page
                 model |> pushPage (AddResult playerInCommunity), opponentListCmdMsgs |> List.map OpponentListCmdMsg
             | None ->
                 { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
@@ -191,7 +194,7 @@ module App =
             let selectedCommunityName = playerInCommunityToAddResultsFor.CommunityName
             let currentPlayerInCommunity = model.ApplicationSettings |> getCurrentPlayerInCommunity selectedCommunityName
 
-            (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerInCommunity.PlayerName playerInCommunityToAddResultsFor.PlayerName)
+            (AddResult.view model.AddResultModel (Msg.AddResultMsg >> dispatch) currentPlayerInCommunity.PlayerName playerInCommunityToAddResultsFor.PlayerName playerInCommunityToAddResultsFor.CommunityName)
                 .ToolbarItems([ View.ToolbarItem( text = "Timer", command = (fun () -> dispatch <| PushPage Timer)) ])
         | Timer ->
             Timer.view model.TimerModel (Msg.TimerMsg >> dispatch)
@@ -243,6 +246,7 @@ type App () as app =
 
     let runner =
         App.program
+//        |> Program.withSubscription (fun _ -> Cmd.ofSub subscribeToPushEvent)
 #if DEBUG
         |> Program.withConsoleTrace
 #endif

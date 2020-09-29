@@ -3,11 +3,20 @@ module Relogify.AddResult
 open System
 open Fabulous
 open Fabulous.XamarinForms
+open Relogify.ApplicationSettings
 open Xamarin.Forms
 open Relogify.Graphql
 
+type ChallengeModel =
+    | NotChallenged
+    | Challenging
+    | WaitingForResponse
+    | ChallengeAccepted
+
 type ResultModel =
-    { OwnPoints: int
+    { IsSendingChallenge: bool
+      IssuedChallenges: Challenge list
+      OwnPoints: int
       OpponentPoints: int
       ExtraTime: bool }
 
@@ -20,14 +29,32 @@ type Model =
     { resultModel: ResultModel
       state: State }
 
-let initModel =
+let getChallengeState (issuedChallenges: Challenge list) (playerInCommunity: PlayerInCommunity) =
+    // TODO: Refactor
+    let maybeChallengeToPlayer = issuedChallenges |> List.tryFind (fun c -> c.ToPlayerInCommunity = playerInCommunity)
+    match maybeChallengeToPlayer with
+    | None -> NotChallenged
+    | Some challengeToPlayer ->
+        match challengeToPlayer.ResponseDate with
+        | Some responseDate -> ChallengeAccepted
+        | None -> WaitingForResponse
+
+let initModel () =
+    // TODO: Command to read challenges instead
+    let issuedChallenges = getChallenges ()
+
     { resultModel =
-        { OwnPoints = 0
+        { IsSendingChallenge = false
+          IssuedChallenges = issuedChallenges
+          OwnPoints = 0
           OpponentPoints = 0
           ExtraTime = false }
       state = EditingResult }
 
 type Msg =
+    | InitiateChallenge
+    | ChallengeInitiated of Challenge list
+    | ChallengeAccepted
     | SetOwnPoints of int
     | SetOpponentPoints of int
     | ToggleExtraTime
@@ -45,6 +72,7 @@ type AddResultModel =
 
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
+    | InitiateChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
@@ -62,6 +90,8 @@ let addResultCmd (resultModel: AddResultModel) =
                 resultModel.ExtraTime
             )
 
+        // TODO: Remove challenge(s) for this opponent from Local storage
+
         return
             match result.Data with
             | Some _ -> ResultAddedSuccess
@@ -69,9 +99,35 @@ let addResultCmd (resultModel: AddResultModel) =
     }
     |> Cmd.ofAsyncMsg
 
+let addChallengeToLocalStorage (challengedPlayer: PlayerInCommunity) =
+    async {
+        let savedChallenges = getChallenges ()
+        let newChallengeList =
+            if savedChallenges |> List.exists (fun c -> c.ToPlayerInCommunity = challengedPlayer) then
+                savedChallenges
+            else
+                { ToPlayerInCommunity = challengedPlayer; IssueDate = DateTime.UtcNow; ResponseDate = None } :: savedChallenges
+        do! saveChallenges newChallengeList |> Async.AwaitTask
+        return newChallengeList
+    }
+
+let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
+    async {
+        // TODO: Remove
+        do! System.Threading.Tasks.Task.Delay(1000) |> Async.AwaitTask
+
+        let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
+
+        // TODO: Make API call to Azure function
+
+        return ChallengeInitiated newChallengeList
+    }
+    |> Cmd.ofAsyncMsg
+
 let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
+    | InitiateChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> initiateChallengeCmd fromPlayer toPlayer communityName
 
 let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
@@ -81,21 +137,32 @@ let toAddResultModel playerName opponentName communityName (resultModel: ResultM
       OpponentPoints = resultModel.OpponentPoints
       ExtraTime = resultModel.ExtraTime }
 
-let updateResultModel (resultModel: ResultModel) (msg: Msg): ResultModel =
-    match msg with
-    | SetOwnPoints newOwnPoints -> { resultModel with OwnPoints = newOwnPoints }
-    | SetOpponentPoints newOpponentPoints -> { resultModel with OpponentPoints = newOpponentPoints }
-    | ToggleExtraTime -> { resultModel with ExtraTime = not resultModel.ExtraTime }
-    | _ -> resultModel
+let hasChallenged (challenges: Challenge list) (playerInCommunity: PlayerInCommunity): bool =
+    challenges |> List.exists (fun c -> c.ToPlayerInCommunity = playerInCommunity)
 
 let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match model.state, msg with
     | (EditingResult, SetOwnPoints _)
     | (EditingResult, SetOpponentPoints _)
     | (EditingResult, ToggleExtraTime)
+    | (EditingResult, InitiateChallenge)
+    | (EditingResult, ChallengeInitiated _)
+    | (EditingResult, ChallengeAccepted)
     | (ErrorAddingResult _, SetOwnPoints _)
     | (ErrorAddingResult _, SetOpponentPoints _)
-    | (ErrorAddingResult _, ToggleExtraTime) -> { model with state = EditingResult; resultModel = updateResultModel model.resultModel msg }, []
+    | (ErrorAddingResult _, ToggleExtraTime) ->
+        let (updatedResultModel, cmdMsgs) =
+            match msg with
+            | InitiateChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
+            | ChallengeInitiated newChallengeList -> { model.resultModel with IsSendingChallenge = false; IssuedChallenges = newChallengeList }, [] //, Some ChallengesUpdated
+            | ChallengeAccepted -> model.resultModel, [] //, Some ChallengesUpdated
+            | SetOwnPoints newOwnPoints -> { model.resultModel with OwnPoints = newOwnPoints }, []
+            | SetOpponentPoints newOpponentPoints -> { model.resultModel with OpponentPoints = newOpponentPoints }, []
+            | ToggleExtraTime -> { model.resultModel with ExtraTime = not model.resultModel.ExtraTime }, []
+            | AddResultInitiated -> model.resultModel, []
+            | ResultAddedSuccess _ -> model.resultModel, []
+            | ResultAddedError _ -> model.resultModel, []
+        { model with state = EditingResult; resultModel = updatedResultModel }, cmdMsgs
 
     | (ErrorAddingResult _, AddResultInitiated)
     | (EditingResult, AddResultInitiated) -> { model with state = AddingResult }, [AddResultCmdMsg (toAddResultModel ownName opponentName communityName model.resultModel)]
@@ -127,6 +194,12 @@ let applyBaseButtonStyle (button: ViewElement) =
         .BorderColor(Color.Black)
         .FontSize(FontSize.fromNamedSize(NamedSize.Large))
 
+let applySmallButtonStyle (button: ViewElement) =
+    button
+        .BorderWidth(1.0)
+        .BorderColor(Color.Black)
+        .FontSize(FontSize.fromNamedSize(NamedSize.Micro))
+
 let pointSelector (selectedNumberOfPoints: int) setPoints =
     View.ScrollView(
         content =
@@ -147,7 +220,35 @@ let pointSelector (selectedNumberOfPoints: int) setPoints =
             )
     )
 
-let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) =
+let challengeIcon (challengeState: ChallengeModel) (dispatch: Msg -> unit) =
+    match challengeState with
+    | NotChallenged ->
+        View.ImageButton(
+            source = Image.fromPath "tab_about.png",
+            backgroundColor = Color.Orange,
+            command = (fun _ -> dispatch InitiateChallenge)
+        )
+    | Challenging -> // TODO: Spinner
+        View.ImageButton(
+            source = Image.fromPath "tab_about.png",
+            backgroundColor = Color.WhiteSmoke,
+            commandCanExecute = false
+        )
+    | WaitingForResponse ->
+        View.ImageButton(
+            source = Image.fromPath "tab_feed.png",
+            backgroundColor = Color.Gray,
+            commandCanExecute = false
+        )
+    | ChallengeModel.ChallengeAccepted ->
+        View.ImageButton(
+            source = Image.fromPath "tab_settings.png",
+            backgroundColor = Color.Green,
+            commandCanExecute = false
+        )
+
+
+let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) (communityName: string) =
     let isAddingResult = model.state |> isAddingResult
 
     View.ContentPage(
@@ -163,7 +264,21 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                          rowdefs = [ Auto; Auto; Star ],
                          children = [
                              View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = ownName, fontSize = FontSize.fromNamedSize(NamedSize.Large)).Column(0).Row(0)
-                             View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large)).Column(1).Row(0)
+                             View.StackLayout(
+                                 orientation = StackOrientation.Horizontal,
+                                 children = [
+                                     View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large))
+                                     challengeIcon (getChallengeState model.resultModel.IssuedChallenges { PlayerName = opponentName; CommunityName = communityName }) dispatch
+//                                     View.Button(
+//                                         text = "Challenge",
+//                                         backgroundColor = Color.Green,
+//                                         textColor = Color.DarkBlue,
+//                                         height = 20.0
+//        //                                 command = (fun _ -> dispatch Challenge),
+//        //                                 commandCanExecute = not isAddingResult
+//                                     ) |> applySmallButtonStyle
+                                ]
+                             ).Column(1).Row(0)
 
                              View.Entry(
                                  isEnabled = not isAddingResult,
@@ -205,13 +320,13 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                 height = 60.0,
                                 command = (fun _ -> dispatch AddResultInitiated),
                                 commandCanExecute = not isAddingResult
-                            ) |> applyBaseButtonStyle
+                            ).Column(0) |> applyBaseButtonStyle
                             View.ActivityIndicator(
                                horizontalOptions = LayoutOptions.End,
                                margin = Thickness(0.0, 0.0, 40.0, 0.0),
                                isVisible = isAddingResult,
                                isRunning = isAddingResult
-                            )
+                            ).Column(0)
                         ]
                     ).Row(2)
 
