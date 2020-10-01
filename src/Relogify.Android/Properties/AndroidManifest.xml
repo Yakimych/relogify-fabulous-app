@@ -14,12 +14,6 @@
 				<category android:name="${applicationId}" />
 			</intent-filter>
 		</receiver>
-		<receiver android:name="Relogify.Android.MyBroadcastReceiver" android:exported="true">
-			<intent-filter>
-				<action android:name="android.intent.action.BOOT_COMPLETED"/>
-				<action android:name="android.intent.action.INPUT_METHOD_CHANGED" />
-			</intent-filter>
-		</receiver>
 	</application>
 	<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 </manifest>
