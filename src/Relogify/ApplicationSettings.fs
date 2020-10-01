@@ -5,8 +5,8 @@ open Newtonsoft.Json
 open System
 
 type ChallengeType =
-    | ChallengeSent
-    | ChallengeReceived
+    | Outgoing
+    | Incoming
 
 type PlayerInCommunity =
     { CommunityName: string

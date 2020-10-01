@@ -4,6 +4,7 @@ open System
 open Android.Util
 open Firebase.Messaging
 open Android.Support.V4.App
+open Relogify.ApplicationSettings
 open WindowsAzure.Messaging
 open Android.App
 open Android.Content
@@ -17,12 +18,12 @@ module MessageUtils =
         | [] -> failwith "The message player part cannot be empty"
         | playerName :: _otherWords -> playerName
 
-    let parseCommunityAndPlayer (messageBody: string): (string * string) =
+    let parsePlayerInCommunity (messageBody: string): PlayerInCommunity =
         let parts = messageBody.Split(":", StringSplitOptions.RemoveEmptyEntries)
         match parts |> List.ofArray with
         | [] -> failwith "Message cannot be empty!"
         | [_singleElement] -> failwith "Message should contain player information"
-        | communityName :: secondPart :: _restOfMessage -> (communityName, secondPart |> parsePlayer)
+        | communityName :: secondPart :: _restOfMessage -> { CommunityName = communityName; PlayerName = secondPart |> parsePlayer }
 
 type ResourceAlias = Resource
 
@@ -57,38 +58,76 @@ type MyFirebaseMessagingService() =
             }
 
     member private this.SendNotification(messageBody: string) =
-        let intent =
-            new Intent(this, typedefof<MainActivity>)
+        let playerInCommunity = messageBody |> MessageUtils.parsePlayerInCommunity
 
-        intent.AddFlags(ActivityFlags.ClearTop) |> ignore
+        let challenges = getChallenges ()
+        match challenges |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity) with
+        | Some existingChallenge ->
+            match existingChallenge.Type with
+            | Outgoing ->
+                // If a challenge is received, and an outgoing challenge is in the list, remove the challenge and show "Accepted" notification
+                removeChallengeFromLocalStorage playerInCommunity |> Async.RunSynchronously |> ignore
 
-        let pendingIntent =
-            PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
+                // TODO: Break into smaller functions
+                // Show "Accepted" notification
+                let intent =
+                    new Intent(this, typedefof<MainActivity>)
 
-        let (communityName, challengeFrom) = messageBody |> MessageUtils.parseCommunityAndPlayer
+                intent.AddFlags(ActivityFlags.ClearTop) |> ignore
 
-        let acceptIntent = new Intent(this, typedefof<MyBroadcastReceiver>)
-        acceptIntent.SetAction("ACTION_ACCEPT") |> ignore
-        acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", 0) |> ignore
-        acceptIntent.PutExtra("CHALLENGE_FROM", challengeFrom) |> ignore
-        acceptIntent.PutExtra("COMMUNITY_NAME", communityName) |> ignore
+                let pendingIntent =
+                    PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
 
-        let acceptPendingIntent = PendingIntent.GetBroadcast(this, 0, acceptIntent, PendingIntentFlags.OneShot)
+                let notificationBuilder =
+                    new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
 
-        let notificationBuilder =
-            new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
+                notificationBuilder
+                    .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
+                    .SetContentText(sprintf "%s: %s has accepted your challenge!" playerInCommunity.CommunityName playerInCommunity.PlayerName)
+                    .SetAutoCancel(true)
+                    .SetShowWhen(false)
+                    .SetContentIntent(pendingIntent)
+                |> ignore
 
-        notificationBuilder
-            .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
-            .SetContentText(messageBody)
-            .SetAutoCancel(true)
-            .SetShowWhen(false)
-            .SetContentIntent(pendingIntent)
-            .AddAction(ResourceAlias.Drawable.ic_launcher, "Accept", acceptPendingIntent)
-        |> ignore
+                let notificationManager = NotificationManager.FromContext(this)
+                notificationManager.Notify(MainActivity.NOTIFICATION_ID, notificationBuilder.Build())
+            | Incoming ->
+                // Do nothing if an incoming challenge already exists
+                ()
+        | None ->
+            // If a challenge is received, and no outgoing challenge is in the list, add an incoming challenge and show "Accept/Decline" choice
+            addChallengeToLocalStorage playerInCommunity ChallengeType.Incoming |> Async.RunSynchronously |> ignore
 
-        let notificationManager = NotificationManager.FromContext(this)
-        notificationManager.Notify(MainActivity.NOTIFICATION_ID, notificationBuilder.Build())
+            let intent =
+                new Intent(this, typedefof<MainActivity>)
+
+            intent.AddFlags(ActivityFlags.ClearTop) |> ignore
+
+            let pendingIntent =
+                PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
+
+            let acceptIntent = new Intent(this, typedefof<MyBroadcastReceiver>)
+            acceptIntent.SetAction("ACTION_ACCEPT") |> ignore
+            acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", 0) |> ignore
+            acceptIntent.PutExtra("CHALLENGE_FROM", playerInCommunity.PlayerName) |> ignore
+            acceptIntent.PutExtra("COMMUNITY_NAME", playerInCommunity.CommunityName) |> ignore
+
+            let acceptPendingIntent = PendingIntent.GetBroadcast(this, 0, acceptIntent, PendingIntentFlags.OneShot)
+
+            let notificationBuilder =
+                new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
+
+            notificationBuilder
+                .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
+                .SetContentText(messageBody)
+                .SetAutoCancel(true)
+                .SetShowWhen(false)
+                .SetContentIntent(pendingIntent)
+                .AddAction(ResourceAlias.Drawable.ic_launcher, "Accept", acceptPendingIntent)
+            |> ignore
+
+            let notificationManager = NotificationManager.FromContext(this)
+            notificationManager.Notify(MainActivity.NOTIFICATION_ID, notificationBuilder.Build())
 
     override this.OnMessageReceived(message: RemoteMessage) =
         Log.Debug(TAG, sprintf "From: %s" message.From)
