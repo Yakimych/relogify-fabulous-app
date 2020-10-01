@@ -82,7 +82,6 @@ module App =
 
     let init () =
         let applicationSettings = getApplicationSettings ()
-        let issuedChallenges = getChallenges ()
 
         let opponentListModel, opponentListCmdMsgs = applicationSettings.Communities |> OpponentList.initModel
         let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
