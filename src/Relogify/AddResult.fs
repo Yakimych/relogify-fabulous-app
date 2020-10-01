@@ -10,9 +10,8 @@ open FSharp.Data
 
 type ChallengeModel =
     | NotChallenged
-    | Challenging
+    | ReceivedChallenge
     | WaitingForResponse
-    | ChallengeAccepted
 
 type ResultModel =
     { IsSendingChallenge: bool
@@ -30,15 +29,15 @@ type Model =
     { resultModel: ResultModel
       state: State }
 
-let getChallengeState (issuedChallenges: Challenge list) (playerInCommunity: PlayerInCommunity) =
+let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInCommunity) =
     // TODO: Refactor
-    let maybeChallengeToPlayer = issuedChallenges |> List.tryFind (fun c -> c.ToPlayerInCommunity = playerInCommunity)
-    match maybeChallengeToPlayer with
+    let maybeChallenge = challenges |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity)
+    match maybeChallenge with
     | None -> NotChallenged
-    | Some challengeToPlayer ->
-        match challengeToPlayer.ResponseDate with
-        | Some responseDate -> ChallengeAccepted
-        | None -> WaitingForResponse
+    | Some challenge ->
+        match challenge.Type with
+        | ChallengeSent -> WaitingForResponse
+        | ChallengeReceived -> ReceivedChallenge
 
 let initModel () =
     // TODO: Command to read challenges instead
@@ -54,6 +53,7 @@ let initModel () =
 
 type Msg =
     | InitiateChallenge
+    | TempCancelChallenge
     | ChallengeInitiated of Challenge list
     | ChallengeAccepted
     | SetOwnPoints of int
@@ -74,6 +74,7 @@ type AddResultModel =
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
     | InitiateChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
+    | TempCancelChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
@@ -100,18 +101,6 @@ let addResultCmd (resultModel: AddResultModel) =
     }
     |> Cmd.ofAsyncMsg
 
-let addChallengeToLocalStorage (challengedPlayer: PlayerInCommunity) =
-    async {
-        let savedChallenges = getChallenges ()
-        let newChallengeList =
-            if savedChallenges |> List.exists (fun c -> c.ToPlayerInCommunity = challengedPlayer) then
-                savedChallenges
-            else
-                { ToPlayerInCommunity = challengedPlayer; IssueDate = DateTime.UtcNow; ResponseDate = None } :: savedChallenges
-        do! saveChallenges newChallengeList |> Async.AwaitTask
-        return newChallengeList
-    }
-
 let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityName: string) =
     let notificationFunctionBaseUrl = ConfigManager.getNotificationFunctionBaseUrl ()
     let challengeFunctionName = "SendChallenge"
@@ -123,16 +112,25 @@ let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityNa
 let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
     async {
         // TODO: Remove
-        do! System.Threading.Tasks.Task.Delay(1000) |> Async.AwaitTask
+        do! System.Threading.Tasks.Task.Delay(3000) |> Async.AwaitTask
 
-        let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
-        let! response = performChallengeApiCall fromPlayer toPlayer communityName
+        let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName } ChallengeSent
+//        let! response = performChallengeApiCall fromPlayer toPlayer communityName
 
-        if response.StatusCode >= 200 && response.StatusCode < 300 then
-            return ChallengeInitiated newChallengeList
-        else
-            // TODO: Handle "Challenge failed"
-            return ChallengeInitiated newChallengeList
+//        if response.StatusCode >= 200 && response.StatusCode < 300 then
+//            return ChallengeInitiated newChallengeList
+//        else
+//            // TODO: Handle "Challenge failed"
+//            return ChallengeInitiated newChallengeList
+        return ChallengeInitiated newChallengeList
+    }
+    |> Cmd.ofAsyncMsg
+
+let tempCancelChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
+    async {
+
+        let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
+        return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
 
@@ -140,6 +138,7 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
     | InitiateChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> initiateChallengeCmd fromPlayer toPlayer communityName
+    | TempCancelChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> tempCancelChallengeCmd fromPlayer toPlayer communityName
 
 let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
@@ -150,7 +149,7 @@ let toAddResultModel playerName opponentName communityName (resultModel: ResultM
       ExtraTime = resultModel.ExtraTime }
 
 let hasChallenged (challenges: Challenge list) (playerInCommunity: PlayerInCommunity): bool =
-    challenges |> List.exists (fun c -> c.ToPlayerInCommunity = playerInCommunity)
+    challenges |> List.exists (fun c -> c.PlayerInCommunity = playerInCommunity)
 
 let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match model.state, msg with
@@ -158,6 +157,7 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
     | (EditingResult, SetOpponentPoints _)
     | (EditingResult, ToggleExtraTime)
     | (EditingResult, InitiateChallenge)
+    | (EditingResult, TempCancelChallenge)
     | (EditingResult, ChallengeInitiated _)
     | (EditingResult, ChallengeAccepted)
     | (ErrorAddingResult _, SetOwnPoints _)
@@ -166,6 +166,7 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
         let (updatedResultModel, cmdMsgs) =
             match msg with
             | InitiateChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
+            | TempCancelChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.TempCancelChallengeCmdMsg (ownName, opponentName, communityName)]
             | ChallengeInitiated newChallengeList -> { model.resultModel with IsSendingChallenge = false; IssuedChallenges = newChallengeList }, [] //, Some ChallengesUpdated
             | ChallengeAccepted -> model.resultModel, [] //, Some ChallengesUpdated
             | SetOwnPoints newOwnPoints -> { model.resultModel with OwnPoints = newOwnPoints }, []
@@ -232,33 +233,66 @@ let pointSelector (selectedNumberOfPoints: int) setPoints =
             )
     )
 
-let challengeIcon (challengeState: ChallengeModel) (dispatch: Msg -> unit) =
-    match challengeState with
-    | NotChallenged ->
+let challengeIcon (challengeState: ChallengeModel) (isSendingChallenge: bool) (dispatch: Msg -> unit) =
+    match (challengeState, isSendingChallenge) with
+    | NotChallenged, _ ->
         View.ImageButton(
             source = Image.fromPath "tab_about.png",
             backgroundColor = Color.Orange,
             command = (fun _ -> dispatch InitiateChallenge)
         )
-    | Challenging -> // TODO: Spinner
+    | WaitingForResponse, true -> // TODO: Spinner
         View.ImageButton(
             source = Image.fromPath "tab_about.png",
             backgroundColor = Color.WhiteSmoke,
             commandCanExecute = false
         )
-    | WaitingForResponse ->
+    | WaitingForResponse, false -> // TODO: Bake in the boolean into WaitingForResponse?
+        View.ImageButton(
+            source = Image.fromPath "tab_about.png",
+            backgroundColor = Color.WhiteSmoke,
+            commandCanExecute = false
+        )
+    | ReceivedChallenge, _ ->
         View.ImageButton(
             source = Image.fromPath "tab_feed.png",
             backgroundColor = Color.Gray,
             commandCanExecute = false
         )
-    | ChallengeModel.ChallengeAccepted ->
-        View.ImageButton(
-            source = Image.fromPath "tab_settings.png",
-            backgroundColor = Color.Green,
-            commandCanExecute = false
-        )
 
+let challengeText (challengeState: ChallengeModel) (isSendingChallenge: bool) (dispatch: Msg -> unit) =
+    if isSendingChallenge then
+        View.Label(
+            text = "...",
+            backgroundColor = Color.WhiteSmoke
+        )
+    else
+        match challengeState with
+        | NotChallenged ->
+            View.Button(
+                text = "C!",
+                backgroundColor = Color.Orange,
+                command = (fun _ -> dispatch InitiateChallenge)
+            )
+        | WaitingForResponse ->
+            View.Button(
+                text = "X",
+                backgroundColor = Color.WhiteSmoke,
+                command = (fun _ -> dispatch TempCancelChallenge)
+            )
+        | ReceivedChallenge ->
+            View.StackLayout(
+                orientation = StackOrientation.Horizontal,
+                children = [
+                    View.Button(
+                        text = "Y",
+                        backgroundColor = Color.Blue
+                    )
+                    View.Button(
+                        text = "N",
+                        backgroundColor = Color.Red
+                    )
+                ])
 
 let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) (communityName: string) =
     let isAddingResult = model.state |> isAddingResult
@@ -280,7 +314,8 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                  orientation = StackOrientation.Horizontal,
                                  children = [
                                      View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large))
-                                     challengeIcon (getChallengeState model.resultModel.IssuedChallenges { PlayerName = opponentName; CommunityName = communityName }) dispatch
+//                                     challengeIcon (getChallengeState model.resultModel.IssuedChallenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
+                                     challengeText (getChallengeState model.resultModel.IssuedChallenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
 //                                     View.Button(
 //                                         text = "Challenge",
 //                                         backgroundColor = Color.Green,

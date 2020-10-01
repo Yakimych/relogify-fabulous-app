@@ -4,6 +4,10 @@ open Xamarin.Forms
 open Newtonsoft.Json
 open System
 
+type ChallengeType =
+    | ChallengeSent
+    | ChallengeReceived
+
 type PlayerInCommunity =
     { CommunityName: string
       PlayerName: string }
@@ -12,9 +16,9 @@ type ApplicationSettings =
     { Communities: PlayerInCommunity list }
 
 type Challenge = {
-    ToPlayerInCommunity: PlayerInCommunity
-    IssueDate: DateTime
-    ResponseDate: DateTime option }
+    PlayerInCommunity: PlayerInCommunity
+    Type: ChallengeType
+    UTcTimeStamp: DateTime }
 
 [<Literal>]
 let ApplicationSettingsStorageKey = "app_settings_key"
@@ -70,6 +74,26 @@ let addCommunityToSettings (communityName : string) (playerName : string) =
 
     // TODO: Check if community exists first
     saveApplicationSettings { currentSettings with Communities = [newCommunity] @ currentSettings.Communities }
+
+let addChallengeToLocalStorage (playerInCommunity: PlayerInCommunity) (challengeType: ChallengeType) =
+    async {
+        let savedChallenges = getChallenges ()
+        let newChallengeList =
+            if savedChallenges |> List.exists (fun c -> c.PlayerInCommunity = playerInCommunity) then
+                savedChallenges
+            else
+                { Type = challengeType; PlayerInCommunity = playerInCommunity; UTcTimeStamp = DateTime.UtcNow; } :: savedChallenges
+        do! saveChallenges newChallengeList |> Async.AwaitTask
+        return newChallengeList
+    }
+
+let removeChallengeFromLocalStorage (playerInCommunity: PlayerInCommunity) =
+    async {
+        let savedChallenges = getChallenges ()
+        let newChallengeList = savedChallenges |> List.filter (fun c -> c.PlayerInCommunity <> playerInCommunity)
+        do! saveChallenges newChallengeList |> Async.AwaitTask
+        return newChallengeList
+    }
 
 let areSet (applicationSettings: ApplicationSettings) =
     applicationSettings.Communities |> List.isEmpty |> not
