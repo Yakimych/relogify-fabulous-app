@@ -9,6 +9,8 @@ type MyBroadcastReceiver() =
 
     override this.OnReceive(context: Context, intent: Intent) =
         // TODO: extract player name and community name in order to respond
+        let challengeFrom = intent.GetStringExtra("CHALLENGE_FROM")
+        let communityName = intent.GetStringExtra("COMMUNITY_NAME")
 
         match intent.Action with
         | "ACTION_ACCEPT" -> ()
