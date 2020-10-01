@@ -15,7 +15,7 @@ type ChallengeModel =
 
 type ResultModel =
     { IsSendingChallenge: bool
-      IssuedChallenges: Challenge list
+      Challenges: Challenge list
       OwnPoints: int
       OpponentPoints: int
       ExtraTime: bool }
@@ -36,16 +36,16 @@ let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInC
     | None -> NotChallenged
     | Some challenge ->
         match challenge.Type with
-        | ChallengeSent -> WaitingForResponse
-        | ChallengeReceived -> ReceivedChallenge
+        | Outgoing -> WaitingForResponse
+        | Incoming -> ReceivedChallenge
 
 let initModel () =
     // TODO: Command to read challenges instead
-    let issuedChallenges = getChallenges ()
+    let challenges = getChallenges ()
 
     { resultModel =
         { IsSendingChallenge = false
-          IssuedChallenges = issuedChallenges
+          Challenges = challenges
           OwnPoints = 0
           OpponentPoints = 0
           ExtraTime = false }
@@ -114,7 +114,7 @@ let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName:
         // TODO: Remove
         do! System.Threading.Tasks.Task.Delay(3000) |> Async.AwaitTask
 
-        let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName } ChallengeSent
+        let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName } Outgoing
 //        let! response = performChallengeApiCall fromPlayer toPlayer communityName
 
 //        if response.StatusCode >= 200 && response.StatusCode < 300 then
@@ -167,7 +167,7 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
             match msg with
             | InitiateChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
             | TempCancelChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.TempCancelChallengeCmdMsg (ownName, opponentName, communityName)]
-            | ChallengeInitiated newChallengeList -> { model.resultModel with IsSendingChallenge = false; IssuedChallenges = newChallengeList }, [] //, Some ChallengesUpdated
+            | ChallengeInitiated newChallengeList -> { model.resultModel with IsSendingChallenge = false; Challenges = newChallengeList }, [] //, Some ChallengesUpdated
             | ChallengeAccepted -> model.resultModel, [] //, Some ChallengesUpdated
             | SetOwnPoints newOwnPoints -> { model.resultModel with OwnPoints = newOwnPoints }, []
             | SetOpponentPoints newOpponentPoints -> { model.resultModel with OpponentPoints = newOpponentPoints }, []
@@ -290,7 +290,8 @@ let challengeText (challengeState: ChallengeModel) (isSendingChallenge: bool) (d
                     )
                     View.Button(
                         text = "N",
-                        backgroundColor = Color.Red
+                        backgroundColor = Color.Red,
+                        command = (fun _ -> dispatch TempCancelChallenge)
                     )
                 ])
 
@@ -314,8 +315,8 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                  orientation = StackOrientation.Horizontal,
                                  children = [
                                      View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large))
-//                                     challengeIcon (getChallengeState model.resultModel.IssuedChallenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
-                                     challengeText (getChallengeState model.resultModel.IssuedChallenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
+//                                     challengeIcon (getChallengeState model.resultModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
+                                     challengeText (getChallengeState model.resultModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
 //                                     View.Button(
 //                                         text = "Challenge",
 //                                         backgroundColor = Color.Green,

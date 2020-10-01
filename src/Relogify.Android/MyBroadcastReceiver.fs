@@ -12,9 +12,15 @@ type MyBroadcastReceiver() =
         let challengeFrom = intent.GetStringExtra("CHALLENGE_FROM")
         let communityName = intent.GetStringExtra("COMMUNITY_NAME")
 
+        Relogify.ApplicationSettings.removeChallengeFromLocalStorage { PlayerName = challengeFrom; CommunityName = communityName } |> Async.RunSynchronously |> ignore
+
         match intent.Action with
-        | "ACTION_ACCEPT" -> ()
-        | "ACTION_DECLINE" -> ()
+        | "ACTION_ACCEPT" ->
+            // TODO: Send back response
+            ()
+        | "ACTION_DECLINE" ->
+            // TODO: Send back response
+            ()
         | _ -> ()
 
         let notificationManagerCompat = NotificationManagerCompat.From(context.ApplicationContext)

@@ -1,6 +1,7 @@
 module MessagingServiceTests
 
 open Relogify.Android
+open Relogify.ApplicationSettings
 open Xunit
 
 [<Fact>]
@@ -9,8 +10,8 @@ let ``Community and player names are parsed correctly from message body``() =
     let expectedPlayerName = "player1"
 
     let messageBody = sprintf "%s: %s has challenged you to a game" expectedCommunityName expectedPlayerName
-    let (actualCommunityName, actualPlayerName) = messageBody |> MessageUtils.parseCommunityAndPlayer
+    let playerInCommunity = messageBody |> MessageUtils.parsePlayerInCommunity
 
-    Assert.Equal(expectedCommunityName, actualCommunityName)
-    Assert.Equal(expectedPlayerName, actualPlayerName)
+    Assert.Equal(expectedCommunityName, playerInCommunity.CommunityName)
+    Assert.Equal(expectedPlayerName, playerInCommunity.PlayerName)
 
