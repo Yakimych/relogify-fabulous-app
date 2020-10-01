@@ -49,20 +49,26 @@ type MyFirebaseMessagingService() =
         let pendingIntent =
             PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
 
+        let acceptIntent = new Intent(this, typedefof<MyBroadcastReceiver>)
+        acceptIntent.SetAction("ACTION_ACCEPT") |> ignore
+        acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", 0) |> ignore
+
+        let acceptPendingIntent = PendingIntent.GetBroadcast(this, 0, acceptIntent, PendingIntentFlags.OneShot)
+
         let notificationBuilder =
             new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
 
         notificationBuilder
-            .SetContentTitle("FCM Message")
             .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
             .SetContentText(messageBody)
             .SetAutoCancel(true)
             .SetShowWhen(false)
             .SetContentIntent(pendingIntent)
+            .AddAction(ResourceAlias.Drawable.ic_launcher, "Accept", acceptPendingIntent)
         |> ignore
 
         let notificationManager = NotificationManager.FromContext(this)
-        notificationManager.Notify(0, notificationBuilder.Build())
+        notificationManager.Notify(MainActivity.NOTIFICATION_ID, notificationBuilder.Build())
 
     override this.OnMessageReceived(message: RemoteMessage) =
         Log.Debug(TAG, sprintf "From: %s" message.From)
