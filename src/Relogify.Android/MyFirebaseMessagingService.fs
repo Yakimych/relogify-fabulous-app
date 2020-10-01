@@ -1,5 +1,6 @@
 ﻿namespace Relogify.Android
 
+open System
 open Android.Util
 open Firebase.Messaging
 open Android.Support.V4.App
@@ -7,6 +8,21 @@ open WindowsAzure.Messaging
 open Android.App
 open Android.Content
 open Xamarin.Forms
+
+// TODO: Send challengeFrom and communityName as part of the message instead of parsing a string
+module MessageUtils =
+    let private parsePlayer (messagePlayerPart: string): string =
+        let words = messagePlayerPart.Split(" ", StringSplitOptions.RemoveEmptyEntries)
+        match words |> List.ofArray with
+        | [] -> failwith "The message player part cannot be empty"
+        | playerName :: _otherWords -> playerName
+
+    let parseCommunityAndPlayer (messageBody: string): (string * string) =
+        let parts = messageBody.Split(":", StringSplitOptions.RemoveEmptyEntries)
+        match parts |> List.ofArray with
+        | [] -> failwith "Message cannot be empty!"
+        | [_singleElement] -> failwith "Message should contain player information"
+        | communityName :: secondPart :: _restOfMessage -> (communityName, secondPart |> parsePlayer)
 
 type ResourceAlias = Resource
 
@@ -49,9 +65,13 @@ type MyFirebaseMessagingService() =
         let pendingIntent =
             PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
 
+        let (communityName, challengeFrom) = messageBody |> MessageUtils.parseCommunityAndPlayer
+
         let acceptIntent = new Intent(this, typedefof<MyBroadcastReceiver>)
         acceptIntent.SetAction("ACTION_ACCEPT") |> ignore
         acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", 0) |> ignore
+        acceptIntent.PutExtra("CHALLENGE_FROM", challengeFrom) |> ignore
+        acceptIntent.PutExtra("COMMUNITY_NAME", communityName) |> ignore
 
         let acceptPendingIntent = PendingIntent.GetBroadcast(this, 0, acceptIntent, PendingIntentFlags.OneShot)
 

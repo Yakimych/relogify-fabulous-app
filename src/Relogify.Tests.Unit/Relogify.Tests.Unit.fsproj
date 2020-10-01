@@ -10,6 +10,7 @@
 
     <ItemGroup>
         <Compile Include="TimerTests.fs" />
+        <Compile Include="MessagingServiceTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
 
@@ -29,6 +30,7 @@
     </ItemGroup>
 
     <ItemGroup>
+      <ProjectReference Include="..\Relogify.Android\Relogify.Android.fsproj" />
       <ProjectReference Include="..\Relogify\Relogify.fsproj" />
     </ItemGroup>
 
