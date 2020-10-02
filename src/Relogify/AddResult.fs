@@ -6,7 +6,6 @@ open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
 open Xamarin.Forms
 open Relogify.Graphql
-open FSharp.Data
 
 type ChallengeModel =
     | NotChallenged
@@ -53,7 +52,8 @@ let initModel () =
 
 type Msg =
     | InitiateChallenge
-    | TempCancelChallenge
+    | RemoveChallenge
+    | ConfirmChallenge
     | ChallengeInitiated of Challenge list
     | ChallengeAccepted
     | SetOwnPoints of int
@@ -74,7 +74,8 @@ type AddResultModel =
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
     | InitiateChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
-    | TempCancelChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
+    | ConfirmChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
+    | RemoveChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
@@ -101,35 +102,34 @@ let addResultCmd (resultModel: AddResultModel) =
     }
     |> Cmd.ofAsyncMsg
 
-let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityName: string) =
-    let notificationFunctionBaseUrl = ConfigManager.getNotificationFunctionBaseUrl ()
-    let challengeFunctionName = "SendChallenge"
-    let challengeFunctionCode = ConfigManager.getChallengeFunctionCode ()
-    let challengeUrl = sprintf "%s/%s?code=%s&challengeFrom=%s&challengeTo=%s&communityName=%s" notificationFunctionBaseUrl challengeFunctionName challengeFunctionCode fromPlayer toPlayer communityName
-
-    Http.AsyncRequest(challengeUrl)
-
 let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
     async {
-        // TODO: Remove
-        do! System.Threading.Tasks.Task.Delay(3000) |> Async.AwaitTask
-
         let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName } Outgoing
-//        let! response = performChallengeApiCall fromPlayer toPlayer communityName
+        let! response = ChallengeManager.performChallengeApiCall fromPlayer toPlayer communityName
 
-//        if response.StatusCode >= 200 && response.StatusCode < 300 then
-//            return ChallengeInitiated newChallengeList
-//        else
-//            // TODO: Handle "Challenge failed"
-//            return ChallengeInitiated newChallengeList
+        if response.StatusCode >= 200 && response.StatusCode < 300 then
+            return ChallengeInitiated newChallengeList
+        else
+            // TODO: Handle "Challenge failed"
+            return ChallengeInitiated newChallengeList
+    }
+    |> Cmd.ofAsyncMsg
+
+// TODO: Remove duplication
+let confirmChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
+    async {
+        let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = fromPlayer; CommunityName = communityName }
+        do! ChallengeManager.respondToChallenge fromPlayer communityName
         return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
 
-let tempCancelChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
+let removeCancelChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
     async {
-
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
+
+        // TODO: Is there a way to remove the "correct" notification too?
+
         return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
@@ -138,7 +138,8 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
     | InitiateChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> initiateChallengeCmd fromPlayer toPlayer communityName
-    | TempCancelChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> tempCancelChallengeCmd fromPlayer toPlayer communityName
+    | ConfirmChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> confirmChallengeCmd fromPlayer toPlayer communityName
+    | RemoveChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> removeCancelChallengeCmd fromPlayer toPlayer communityName
 
 let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
@@ -157,16 +158,19 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
     | (EditingResult, SetOpponentPoints _)
     | (EditingResult, ToggleExtraTime)
     | (EditingResult, InitiateChallenge)
-    | (EditingResult, TempCancelChallenge)
+    | (EditingResult, ConfirmChallenge)
+    | (EditingResult, RemoveChallenge)
     | (EditingResult, ChallengeInitiated _)
     | (EditingResult, ChallengeAccepted)
     | (ErrorAddingResult _, SetOwnPoints _)
     | (ErrorAddingResult _, SetOpponentPoints _)
     | (ErrorAddingResult _, ToggleExtraTime) ->
+        // TODO: Separate update function for handling challenge flow?
         let (updatedResultModel, cmdMsgs) =
             match msg with
             | InitiateChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
-            | TempCancelChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.TempCancelChallengeCmdMsg (ownName, opponentName, communityName)]
+            | ConfirmChallenge -> { model.resultModel with IsSendingChallenge = false }, [CmdMsg.ConfirmChallengeCmdMsg (opponentName, ownName, communityName)]
+            | RemoveChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (ownName, opponentName, communityName)]
             | ChallengeInitiated newChallengeList -> { model.resultModel with IsSendingChallenge = false; Challenges = newChallengeList }, [] //, Some ChallengesUpdated
             | ChallengeAccepted -> model.resultModel, [] //, Some ChallengesUpdated
             | SetOwnPoints newOwnPoints -> { model.resultModel with OwnPoints = newOwnPoints }, []
@@ -278,7 +282,7 @@ let challengeText (challengeState: ChallengeModel) (isSendingChallenge: bool) (d
             View.Button(
                 text = "X",
                 backgroundColor = Color.WhiteSmoke,
-                command = (fun _ -> dispatch TempCancelChallenge)
+                command = (fun _ -> dispatch RemoveChallenge)
             )
         | ReceivedChallenge ->
             View.StackLayout(
@@ -286,12 +290,13 @@ let challengeText (challengeState: ChallengeModel) (isSendingChallenge: bool) (d
                 children = [
                     View.Button(
                         text = "Y",
-                        backgroundColor = Color.Blue
+                        backgroundColor = Color.Blue,
+                        command = (fun _ -> dispatch ConfirmChallenge)
                     )
                     View.Button(
                         text = "N",
                         backgroundColor = Color.Red,
-                        command = (fun _ -> dispatch TempCancelChallenge)
+                        command = (fun _ -> dispatch RemoveChallenge)
                     )
                 ])
 
