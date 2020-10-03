@@ -237,8 +237,11 @@ let pointSelector (selectedNumberOfPoints: int) setPoints =
             )
     )
 
-// TODO:
-//let withImageButtonStyle () =
+let applyImageButtonStyle (imageButton: ViewElement) =
+    imageButton
+        .ImageButtonCornerRadius(16)
+        .WidthRequest(32.0)
+        .HeightRequest(32.0)
 
 let challengeIcon (challengeState: ChallengeModel) (isSendingChallenge: bool) (dispatch: Msg -> unit) =
     if isSendingChallenge then
@@ -252,41 +255,29 @@ let challengeIcon (challengeState: ChallengeModel) (isSendingChallenge: bool) (d
         | NotChallenged ->
             View.ImageButton(
                 source = Image.fromPath "target_icon.png",
-                cornerRadius = 16,
                 backgroundColor = Color.Wheat,
-                height = 32.0,
-                width = 32.0,
                 command = (fun _ -> dispatch InitiateChallenge)
-            )
+            ) |> applyImageButtonStyle
         | WaitingForResponse ->
             View.ImageButton(
                 source = Image.fromPath "decline_icon.png",
-                cornerRadius = 16,
                 backgroundColor = Color.LightPink,
-                height = 32.0,
-                width = 32.0,
                 command = (fun _ -> dispatch RemoveChallenge)
-            )
+            ) |> applyImageButtonStyle
         | ReceivedChallenge ->
             View.StackLayout(
                 orientation = StackOrientation.Horizontal,
                 children = [
                     View.ImageButton(
                         source = Image.fromPath "accept_icon.png",
-                        cornerRadius = 16,
                         backgroundColor = Color.LightGreen,
-                        height = 32.0,
-                        width = 32.0,
                         command = (fun _ -> dispatch ConfirmChallenge)
-                    )
+                    ) |> applyImageButtonStyle
                     View.ImageButton(
                         source = Image.fromPath "decline_icon.png",
-                        cornerRadius = 16,
                         backgroundColor = Color.LightPink,
-                        height = 32.0,
-                        width = 32.0,
                         command = (fun _ -> dispatch RemoveChallenge)
-                    )
+                    ) |> applyImageButtonStyle
                 ])
 
 let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName: string) (communityName: string) =
