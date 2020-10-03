@@ -237,65 +237,54 @@ let pointSelector (selectedNumberOfPoints: int) setPoints =
             )
     )
 
-let challengeIcon (challengeState: ChallengeModel) (isSendingChallenge: bool) (dispatch: Msg -> unit) =
-    match (challengeState, isSendingChallenge) with
-    | NotChallenged, _ ->
-        View.ImageButton(
-            source = Image.fromPath "tab_about.png",
-            backgroundColor = Color.Orange,
-            command = (fun _ -> dispatch InitiateChallenge)
-        )
-    | WaitingForResponse, true -> // TODO: Spinner
-        View.ImageButton(
-            source = Image.fromPath "tab_about.png",
-            backgroundColor = Color.WhiteSmoke,
-            commandCanExecute = false
-        )
-    | WaitingForResponse, false -> // TODO: Bake in the boolean into WaitingForResponse?
-        View.ImageButton(
-            source = Image.fromPath "tab_about.png",
-            backgroundColor = Color.WhiteSmoke,
-            commandCanExecute = false
-        )
-    | ReceivedChallenge, _ ->
-        View.ImageButton(
-            source = Image.fromPath "tab_feed.png",
-            backgroundColor = Color.Gray,
-            commandCanExecute = false
-        )
+// TODO:
+//let withImageButtonStyle () =
 
-let challengeText (challengeState: ChallengeModel) (isSendingChallenge: bool) (dispatch: Msg -> unit) =
+let challengeIcon (challengeState: ChallengeModel) (isSendingChallenge: bool) (dispatch: Msg -> unit) =
     if isSendingChallenge then
-        View.Label(
-            text = "...",
-            backgroundColor = Color.WhiteSmoke
+        View.ActivityIndicator(
+           height = 32.0,
+           width = 32.0,
+           isRunning = true
         )
     else
         match challengeState with
         | NotChallenged ->
-            View.Button(
-                text = "C!",
-                backgroundColor = Color.Orange,
+            View.ImageButton(
+                source = Image.fromPath "target_icon.png",
+                cornerRadius = 16,
+                backgroundColor = Color.Wheat,
+                height = 32.0,
+                width = 32.0,
                 command = (fun _ -> dispatch InitiateChallenge)
             )
         | WaitingForResponse ->
-            View.Button(
-                text = "X",
-                backgroundColor = Color.WhiteSmoke,
+            View.ImageButton(
+                source = Image.fromPath "decline_icon.png",
+                cornerRadius = 16,
+                backgroundColor = Color.LightPink,
+                height = 32.0,
+                width = 32.0,
                 command = (fun _ -> dispatch RemoveChallenge)
             )
         | ReceivedChallenge ->
             View.StackLayout(
                 orientation = StackOrientation.Horizontal,
                 children = [
-                    View.Button(
-                        text = "Y",
-                        backgroundColor = Color.Blue,
+                    View.ImageButton(
+                        source = Image.fromPath "accept_icon.png",
+                        cornerRadius = 16,
+                        backgroundColor = Color.LightGreen,
+                        height = 32.0,
+                        width = 32.0,
                         command = (fun _ -> dispatch ConfirmChallenge)
                     )
-                    View.Button(
-                        text = "N",
-                        backgroundColor = Color.Red,
+                    View.ImageButton(
+                        source = Image.fromPath "decline_icon.png",
+                        cornerRadius = 16,
+                        backgroundColor = Color.LightPink,
+                        height = 32.0,
+                        width = 32.0,
                         command = (fun _ -> dispatch RemoveChallenge)
                     )
                 ])
@@ -320,16 +309,7 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                  orientation = StackOrientation.Horizontal,
                                  children = [
                                      View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large))
-//                                     challengeIcon (getChallengeState model.resultModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
-                                     challengeText (getChallengeState model.resultModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
-//                                     View.Button(
-//                                         text = "Challenge",
-//                                         backgroundColor = Color.Green,
-//                                         textColor = Color.DarkBlue,
-//                                         height = 20.0
-//        //                                 command = (fun _ -> dispatch Challenge),
-//        //                                 commandCanExecute = not isAddingResult
-//                                     ) |> applySmallButtonStyle
+                                     challengeIcon (getChallengeState model.resultModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.resultModel.IsSendingChallenge dispatch
                                 ]
                              ).Column(1).Row(0)
 

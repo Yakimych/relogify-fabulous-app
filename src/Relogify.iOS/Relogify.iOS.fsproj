@@ -189,6 +189,15 @@
     <BundleResource Include="Resources\tab_about@3x.png" />
     <BundleResource Include="Resources\tab_settings@2x.png" />
     <BundleResource Include="Resources\tab_feed@3x.png" />
+    <BundleResource Include="Resources\accept_icon.png" />
+    <BundleResource Include="Resources\accept_icon@2x.png" />
+    <BundleResource Include="Resources\accept_icon@3x.png" />
+    <BundleResource Include="Resources\decline_icon.png" />
+    <BundleResource Include="Resources\decline_icon@2x.png" />
+    <BundleResource Include="Resources\decline_icon@3x.png" />
+    <BundleResource Include="Resources\target_icon.png" />
+    <BundleResource Include="Resources\target_icon@2x.png" />
+    <BundleResource Include="Resources\target_icon@3x.png" />
     <BundleResource Include="Resources\tab_feed@2x.png" />
     <BundleResource Include="Resources\tab_about@2x.png" />
     <ImageAsset Include="Assets.xcassets\AppIcon.appiconset\Contents.json">
