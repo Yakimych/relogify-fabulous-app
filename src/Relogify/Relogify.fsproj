@@ -11,6 +11,7 @@
     <Compile Include="IMessagingService.fs" />
     <Compile Include="ConfigManager.fs" />
     <Compile Include="ApplicationSettings.fs" />
+    <Compile Include="MessageUtils.fs" />
     <Compile Include="ChallengeManager.fs" />
     <Compile Include="Graphql.fs" />
     <Compile Include="Styles.fs" />

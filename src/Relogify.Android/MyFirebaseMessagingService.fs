@@ -10,21 +10,6 @@ open Android.App
 open Android.Content
 open Xamarin.Forms
 
-// TODO: Send challengeFrom and communityName as part of the message instead of parsing a string
-module MessageUtils =
-    let private parsePlayer (messagePlayerPart: string): string =
-        let words = messagePlayerPart.Split(" ", StringSplitOptions.RemoveEmptyEntries)
-        match words |> List.ofArray with
-        | [] -> failwith "The message player part cannot be empty"
-        | playerName :: _otherWords -> playerName
-
-    let parsePlayerInCommunity (messageBody: string): PlayerInCommunity =
-        let parts = messageBody.Split(":", StringSplitOptions.RemoveEmptyEntries)
-        match parts |> List.ofArray with
-        | [] -> failwith "Message cannot be empty!"
-        | [_singleElement] -> failwith "Message should contain player information"
-        | communityName :: secondPart :: _restOfMessage -> { CommunityName = communityName; PlayerName = secondPart |> parsePlayer }
-
 type ResourceAlias = Resource
 
 [<Service>]
@@ -58,7 +43,7 @@ type MyFirebaseMessagingService() =
             }
 
     member private this.SendNotification(messageBody: string) =
-        let playerInCommunity = messageBody |> MessageUtils.parsePlayerInCommunity
+        let playerInCommunity = messageBody |> Relogify.MessageUtils.parsePlayerInCommunity
 
         let challenges = getChallenges ()
         match challenges |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity) with
