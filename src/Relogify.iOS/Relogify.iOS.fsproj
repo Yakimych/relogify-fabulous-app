@@ -112,6 +112,10 @@
       <HintPath>..\packages\Fabulous.XamarinForms.LiveUpdate.0.57.0\lib\netstandard2.0\Fabulous.XamarinForms.LiveUpdate.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="FSharp.Data, Version=3.3.3.0, Culture=neutral, PublicKeyToken=null">
+      <HintPath>..\packages\FSharp.Data.3.3.3\lib\netstandard2.0\FSharp.Data.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="FSharp.Data.GraphQL.Client, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null">
       <HintPath>..\packages\FSharp.Data.GraphQL.Client.1.0.5\lib\netstandard2.0\FSharp.Data.GraphQL.Client.dll</HintPath>
       <Private>True</Private>
