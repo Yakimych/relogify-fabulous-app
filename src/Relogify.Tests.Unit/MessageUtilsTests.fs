@@ -1,4 +1,4 @@
-module MessagingServiceTests
+module MessageUtilsTests
 
 open Relogify.ApplicationSettings
 open Relogify.MessageUtils

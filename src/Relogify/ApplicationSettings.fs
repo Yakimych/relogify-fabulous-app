@@ -6,7 +6,7 @@ open System
 
 type ChallengeType =
     | Outgoing
-    | Incoming
+    | Incoming of notificationId: int
 
 type PlayerInCommunity =
     { CommunityName: string

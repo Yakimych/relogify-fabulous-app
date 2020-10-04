@@ -41,7 +41,12 @@ type AndroidFirebaseMessagingService() =
                 Log.Debug(TAG, sprintf "Successful registration of ID %s" regID) |> ignore
             }
 
+        member this.CancelNotification (notificationId: int): unit =
+            let notificationManagerCompat = NotificationManagerCompat.From(Application.Context)
+            notificationManagerCompat.Cancel(notificationId)
+
     member private this.SendNotification(messageBody: string) =
+        let notificationId = messageBody.GetHashCode()
         let playerInCommunity = messageBody |> Relogify.MessageUtils.parsePlayerInCommunity
 
         let challenges = getChallenges ()
@@ -54,8 +59,7 @@ type AndroidFirebaseMessagingService() =
 
                 // TODO: Break into smaller functions
                 // Show "Accepted" notification
-                let intent =
-                    new Intent(this, typedefof<MainActivity>)
+                let intent = new Intent(this, typedefof<MainActivity>)
 
                 intent.AddFlags(ActivityFlags.ClearTop) |> ignore
 
@@ -74,13 +78,13 @@ type AndroidFirebaseMessagingService() =
                 |> ignore
 
                 let notificationManager = NotificationManager.FromContext(this)
-                notificationManager.Notify(MainActivity.NOTIFICATION_ID, notificationBuilder.Build())
-            | Incoming ->
+                notificationManager.Notify(notificationId, notificationBuilder.Build())
+            | Incoming _ ->
                 // Do nothing if an incoming challenge already exists
                 ()
         | None ->
             // If a challenge is received, and no outgoing challenge is in the list, add an incoming challenge and show "Accept/Decline" choice
-            addChallengeToLocalStorage playerInCommunity ChallengeType.Incoming |> Async.RunSynchronously |> ignore
+            addChallengeToLocalStorage playerInCommunity (ChallengeType.Incoming notificationId) |> Async.RunSynchronously |> ignore
 
             let intent =
                 new Intent(this, typedefof<MainActivity>)
@@ -90,28 +94,37 @@ type AndroidFirebaseMessagingService() =
             let pendingIntent =
                 PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
 
-            let acceptIntent = new Intent(this, typedefof<MyBroadcastReceiver>)
+            let acceptIntent = new Intent(this, typedefof<ChallengeBroadcastReceiver>)
             acceptIntent.SetAction("ACTION_ACCEPT") |> ignore
-            acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", 0) |> ignore
-            acceptIntent.PutExtra("CHALLENGE_FROM", playerInCommunity.PlayerName) |> ignore
-            acceptIntent.PutExtra("COMMUNITY_NAME", playerInCommunity.CommunityName) |> ignore
+            acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", notificationId) |> ignore
+            acceptIntent.PutExtra("EXTRA_CHALLENGE_FROM", playerInCommunity.PlayerName) |> ignore
+            acceptIntent.PutExtra("EXTRA_COMMUNITY_NAME", playerInCommunity.CommunityName) |> ignore
 
             let acceptPendingIntent = PendingIntent.GetBroadcast(this, 0, acceptIntent, PendingIntentFlags.OneShot)
+
+            let declineIntent = new Intent(this, typedefof<ChallengeBroadcastReceiver>)
+            declineIntent.SetAction("ACTION_DECLINE") |> ignore
+            declineIntent.PutExtra("EXTRA_NOTIFICATION_ID", notificationId) |> ignore
+            declineIntent.PutExtra("EXTRA_CHALLENGE_FROM", playerInCommunity.PlayerName) |> ignore
+            declineIntent.PutExtra("EXTRA_COMMUNITY_NAME", playerInCommunity.CommunityName) |> ignore
+
+            let declinePendingIntent = PendingIntent.GetBroadcast(this, 0, declineIntent, PendingIntentFlags.OneShot)
 
             let notificationBuilder =
                 new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
 
             notificationBuilder
-                .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
+                .SetSmallIcon(ResourceAlias.Drawable.ic_launcher) // TODO: Icon
                 .SetContentText(messageBody)
                 .SetAutoCancel(true)
                 .SetShowWhen(false)
                 .SetContentIntent(pendingIntent)
-                .AddAction(ResourceAlias.Drawable.ic_launcher, "Accept", acceptPendingIntent)
+                .AddAction(0, "Accept", acceptPendingIntent)
+                .AddAction(0, "Decline", declinePendingIntent)
             |> ignore
 
             let notificationManager = NotificationManager.FromContext(this)
-            notificationManager.Notify(MainActivity.NOTIFICATION_ID, notificationBuilder.Build())
+            notificationManager.Notify(notificationId, notificationBuilder.Build())
 
     override this.OnMessageReceived(message: RemoteMessage) =
         Log.Debug(TAG, sprintf "From: %s" message.From)
