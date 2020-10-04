@@ -1,6 +1,5 @@
 ﻿namespace Relogify.Android
 
-open System
 open Android.Util
 open Firebase.Messaging
 open Android.Support.V4.App
@@ -15,10 +14,10 @@ type ResourceAlias = Resource
 [<Service>]
 [<IntentFilter([| "com.google.firebase.MESSAGING_EVENT" |])>]
 [<IntentFilter([| "com.google.firebase.INSTANCE_ID_EVENT" |])>]
-type MyFirebaseMessagingService() =
+type AndroidFirebaseMessagingService() =
     inherit FirebaseMessagingService()
 
-    let TAG: string = "MyFirebaseMsgService"
+    let TAG: string = "RelogifyFirebaseMsgService"
     let androidTokenPropertyKey: string = "android_notification_hub_token"
 
     interface Relogify.IMessagingService with
@@ -34,7 +33,7 @@ type MyFirebaseMessagingService() =
 
                 let hub = new NotificationHub(notificationHubName, listenConnectionString, Android.App.Application.Context)
 
-                let applicationSettings = Relogify.ApplicationSettings.getApplicationSettings ()
+                let applicationSettings = getApplicationSettings ()
                 let tags = applicationSettings.Communities |> List.map (fun c -> sprintf "%s_%s" c.CommunityName c.PlayerName)
 
                 let regID = hub.Register(savedToken, tags |> Array.ofList).RegistrationId
@@ -137,5 +136,5 @@ type MyFirebaseMessagingService() =
             do! (this :> Relogify.IMessagingService).SendRegistrationToServer ()
         } |> Async.StartAsTask |> ignore
 
-[<assembly: Dependency(typeof<MyFirebaseMessagingService>)>]
+[<assembly: Dependency(typeof<AndroidFirebaseMessagingService>)>]
 do ()
