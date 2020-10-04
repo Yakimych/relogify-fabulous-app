@@ -9,7 +9,7 @@ open Relogify.Graphql
 
 type ChallengeModel =
     | NotChallenged
-    | ReceivedChallenge
+    | ReceivedChallenge of notificationId: int
     | WaitingForResponse
 
 type ResultModel =
@@ -36,7 +36,7 @@ let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInC
     | Some challenge ->
         match challenge.Type with
         | Outgoing -> WaitingForResponse
-        | Incoming -> ReceivedChallenge
+        | Incoming notificationId -> ReceivedChallenge notificationId
 
 let initModel () =
     // TODO: Command to read challenges instead
@@ -52,8 +52,9 @@ let initModel () =
 
 type Msg =
     | InitiateChallenge
-    | RemoveChallenge
-    | ConfirmChallenge
+    | RemoveChallenge of notificationId: int
+    | CancelChallenge
+    | ConfirmChallenge of notificationId: int
     | ChallengeInitiated of Challenge list
     | ChallengeAccepted
     | SetOwnPoints of int
@@ -74,8 +75,9 @@ type AddResultModel =
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
     | InitiateChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
-    | ConfirmChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
-    | RemoveChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
+    | ConfirmChallengeCmdMsg of notificationId: int * fromPlayer: string * toPlayer: string * communityName : string
+    | RemoveChallengeCmdMsg of notificationId: int * fromPlayer: string * toPlayer: string * communityName : string
+    | CancelChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
@@ -116,20 +118,34 @@ let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName:
     |> Cmd.ofAsyncMsg
 
 // TODO: Remove duplication
-let confirmChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
+let confirmChallengeCmd (notificationId: int) (fromPlayer: string) (toPlayer: string) (communityName: string) =
     async {
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = fromPlayer; CommunityName = communityName }
+
+        // TODO: Move out of AddResult?
+        let messagingService = DependencyService.Get<IMessagingService>()
+        messagingService.CancelNotification notificationId
+
         do! ChallengeManager.respondToChallenge fromPlayer communityName
         return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
 
-let removeCancelChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
+let removeChallengeCmd (notificationId: int) (toPlayer: string) (communityName: string) =
     async {
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
 
-        // TODO: Is there a way to remove the "correct" notification too?
+        // TODO: Move out of AddResult?
+        let messagingService = DependencyService.Get<IMessagingService>()
+        messagingService.CancelNotification notificationId
 
+        return ChallengeInitiated newChallengeList
+    }
+    |> Cmd.ofAsyncMsg
+
+let cancelChallengeCmd (toPlayer: string) (communityName: string) =
+    async {
+        let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
         return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
@@ -138,8 +154,9 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
     | InitiateChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> initiateChallengeCmd fromPlayer toPlayer communityName
-    | ConfirmChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> confirmChallengeCmd fromPlayer toPlayer communityName
-    | RemoveChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> removeCancelChallengeCmd fromPlayer toPlayer communityName
+    | ConfirmChallengeCmdMsg (notificationId, fromPlayer, toPlayer, communityName) -> confirmChallengeCmd notificationId fromPlayer toPlayer communityName
+    | RemoveChallengeCmdMsg (notificationId, fromPlayer, toPlayer, communityName) -> removeChallengeCmd notificationId toPlayer communityName
+    | CancelChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> cancelChallengeCmd toPlayer communityName
 
 let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
@@ -158,8 +175,9 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
     | (EditingResult, SetOpponentPoints _)
     | (EditingResult, ToggleExtraTime)
     | (EditingResult, InitiateChallenge)
-    | (EditingResult, ConfirmChallenge)
-    | (EditingResult, RemoveChallenge)
+    | (EditingResult, ConfirmChallenge _)
+    | (EditingResult, RemoveChallenge _)
+    | (EditingResult, CancelChallenge)
     | (EditingResult, ChallengeInitiated _)
     | (EditingResult, ChallengeAccepted)
     | (ErrorAddingResult _, SetOwnPoints _)
@@ -169,8 +187,9 @@ let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (
         let (updatedResultModel, cmdMsgs) =
             match msg with
             | InitiateChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
-            | ConfirmChallenge -> { model.resultModel with IsSendingChallenge = false }, [CmdMsg.ConfirmChallengeCmdMsg (opponentName, ownName, communityName)]
-            | RemoveChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (ownName, opponentName, communityName)]
+            | ConfirmChallenge notificationId -> { model.resultModel with IsSendingChallenge = false }, [CmdMsg.ConfirmChallengeCmdMsg (notificationId, opponentName, ownName, communityName)]
+            | RemoveChallenge notificationId -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, ownName, opponentName, communityName)]
+            | CancelChallenge -> { model.resultModel with IsSendingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (ownName, opponentName, communityName)]
             | ChallengeInitiated newChallengeList -> { model.resultModel with IsSendingChallenge = false; Challenges = newChallengeList }, [] //, Some ChallengesUpdated
             | ChallengeAccepted -> model.resultModel, [] //, Some ChallengesUpdated
             | SetOwnPoints newOwnPoints -> { model.resultModel with OwnPoints = newOwnPoints }, []
@@ -262,21 +281,21 @@ let challengeIcon (challengeState: ChallengeModel) (isSendingChallenge: bool) (d
             View.ImageButton(
                 source = Image.fromPath "decline_icon.png",
                 backgroundColor = Color.LightPink,
-                command = (fun _ -> dispatch RemoveChallenge)
+                command = (fun _ -> dispatch CancelChallenge)
             ) |> applyImageButtonStyle
-        | ReceivedChallenge ->
+        | ReceivedChallenge notificationId ->
             View.StackLayout(
                 orientation = StackOrientation.Horizontal,
                 children = [
                     View.ImageButton(
                         source = Image.fromPath "accept_icon.png",
                         backgroundColor = Color.LightGreen,
-                        command = (fun _ -> dispatch ConfirmChallenge)
+                        command = (fun _ -> dispatch <| ConfirmChallenge notificationId)
                     ) |> applyImageButtonStyle
                     View.ImageButton(
                         source = Image.fromPath "decline_icon.png",
                         backgroundColor = Color.LightPink,
-                        command = (fun _ -> dispatch RemoveChallenge)
+                        command = (fun _ -> dispatch <| RemoveChallenge notificationId)
                     ) |> applyImageButtonStyle
                 ])
 
