@@ -383,7 +383,7 @@
       <Project>{C6112E23-56E4-4E15-BF0E-2F831C97C169}</Project>
       <Name>Relogify</Name>
     </ProjectReference>
-    <Compile Include="MyFirebaseMessagingService.fs" />
+    <Compile Include="AndroidFirebaseMessagingService.fs" />
   </ItemGroup>
   <Import Project="..\packages\Xamarin.Android.Support.Annotations.28.0.0.3\build\monoandroid90\Xamarin.Android.Support.Annotations.targets" Condition="Exists('..\packages\Xamarin.Android.Support.Annotations.28.0.0.3\build\monoandroid90\Xamarin.Android.Support.Annotations.targets')" />
   <Import Project="..\packages\Xamarin.Android.Arch.Core.Common.1.1.1.3\build\monoandroid90\Xamarin.Android.Arch.Core.Common.targets" Condition="Exists('..\packages\Xamarin.Android.Arch.Core.Common.1.1.1.3\build\monoandroid90\Xamarin.Android.Arch.Core.Common.targets')" />
