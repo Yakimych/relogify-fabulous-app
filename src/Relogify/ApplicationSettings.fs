@@ -18,7 +18,7 @@ type ApplicationSettings =
 type Challenge = {
     PlayerInCommunity: PlayerInCommunity
     Type: ChallengeType
-    UTcTimeStamp: DateTime }
+    UtcTimeStamp: DateTime }
 
 [<Literal>]
 let ApplicationSettingsStorageKey = "app_settings_key"
@@ -82,7 +82,7 @@ let addChallengeToLocalStorage (playerInCommunity: PlayerInCommunity) (challenge
             if savedChallenges |> List.exists (fun c -> c.PlayerInCommunity = playerInCommunity) then
                 savedChallenges
             else
-                { Type = challengeType; PlayerInCommunity = playerInCommunity; UTcTimeStamp = DateTime.UtcNow; } :: savedChallenges
+                { Type = challengeType; PlayerInCommunity = playerInCommunity; UtcTimeStamp = DateTime.UtcNow; } :: savedChallenges
         do! saveChallenges newChallengeList |> Async.AwaitTask
         return newChallengeList
     }

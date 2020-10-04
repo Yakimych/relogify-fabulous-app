@@ -5,7 +5,7 @@ open Xamarin.Forms
 //[<Service>]
 type IosFirebaseMessagingService() =
     interface Relogify.IMessagingService with
-        member this.SendRegistrationToServer (): Async<unit> = async { return () }
+        member this.SendRegistrationToServer(): Async<unit> = async { return () }
 
-[<assembly: Dependency(typeof<IosFirebaseMessagingService>)>]
+[<assembly:Dependency(typeof<IosFirebaseMessagingService>)>]
 do ()
