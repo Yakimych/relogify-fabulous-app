@@ -20,13 +20,13 @@ type MainActivity() =
     inherit FormsAppCompatActivity()
 
     let TAG: string = "MainActivity"
-    static member CHANNEL_ID: string = "my_notification_channel" // TODO: "Challenges from other players"
+    static member CHANNEL_ID: string = "relogify_challenges_channel"
     static member NOTIFICATION_ID: int = 123
 
     member private this.CreateNotificationChannel () =
         if Build.VERSION.SdkInt >= BuildVersionCodes.O then
-            let channelName = MainActivity.CHANNEL_ID
-            let channelDescription = ""
+            let channelName = "Challenge notifications"
+            let channelDescription = "Notifications when receiving challenges from other players"
             let channel = new NotificationChannel(MainActivity.CHANNEL_ID, channelName, NotificationImportance.Default)
             channel.Description <- channelDescription
 
