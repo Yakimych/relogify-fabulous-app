@@ -86,8 +86,7 @@ type AndroidFirebaseMessagingService() =
             // If a challenge is received, and no outgoing challenge is in the list, add an incoming challenge and show "Accept/Decline" choice
             addChallengeToLocalStorage playerInCommunity (ChallengeType.Incoming notificationId) |> Async.RunSynchronously |> ignore
 
-            let intent =
-                new Intent(this, typedefof<MainActivity>)
+            let intent = new Intent(this, typedefof<MainActivity>)
 
             intent.AddFlags(ActivityFlags.ClearTop) |> ignore
 

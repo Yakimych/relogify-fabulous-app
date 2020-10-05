@@ -42,7 +42,8 @@ let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInC
 
 let initModel () =
     // TODO: Command to read challenges instead
-    let challenges = getChallenges ()
+//    let challenges = getChallenges ()
+    let challenges = []
 
     { resultModel =
         { OwnPoints = 0
@@ -87,6 +88,8 @@ type CmdMsg =
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
+        do! Async.SwitchToThreadPool()
+
         let currentDateString = DateTime.UtcNow.ToString("o")
 
         let! result =
@@ -112,6 +115,8 @@ let addResultCmd (resultModel: AddResultModel) =
 
 let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName: string) =
     async {
+        do! Async.SwitchToThreadPool()
+
         let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName } Outgoing
         let! response = ChallengeManager.performChallengeApiCall fromPlayer toPlayer communityName
 

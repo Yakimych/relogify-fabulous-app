@@ -56,6 +56,8 @@ let initModel (): Model =
 
 let fetchPlayersCmd (communityName: string) =
     async {
+        do! Async.SwitchToThreadPool()
+
         let! result = getPlayersOperation.AsyncRun(runtimeContext, communityName)
         return
             match result.Data with
@@ -92,7 +94,7 @@ let communityInput (communityName: string) (isFetchingPlayers: bool) (dispatch: 
                      text = "Fetch Players",
                      backgroundColor = Color.LightGreen,
                      command = (fun _ -> dispatch StartFetchingPlayers),
-                     commandCanExecute = isNotEmpty communityName
+                     commandCanExecute = (isNotEmpty communityName && not isFetchingPlayers)
                  )
                  View.ActivityIndicator(
                     horizontalOptions = LayoutOptions.End,
