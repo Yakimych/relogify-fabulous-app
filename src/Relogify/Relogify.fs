@@ -118,8 +118,6 @@ module App =
             let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
             match opponentListOutMsg with
             | Some (OpponentList.PlayerSelectedOutMsg playerInCommunity) ->
-                // TODO: Read challenges here?
-                // TODO: Alternative - read all challenges, no matter what opponent, and match inside the AddResult page
                 model |> pushPage (AddResult playerInCommunity), opponentListCmdMsgs |> List.map OpponentListCmdMsg
             | None ->
                 { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
@@ -245,7 +243,6 @@ type App () as app =
 
     let runner =
         App.program
-//        |> Program.withSubscription (fun _ -> Cmd.ofSub subscribeToPushEvent)
 #if DEBUG
         |> Program.withConsoleTrace
 #endif
