@@ -45,37 +45,39 @@ type AndroidFirebaseMessagingService() =
             let notificationManagerCompat = NotificationManagerCompat.From(Application.Context)
             notificationManagerCompat.Cancel(notificationId)
 
-    member private this.SendNotification(messageBody: string) =
+    member private this.GetNotificationBuilder (messageBody: string) (playerInCommunity: PlayerInCommunity) (notificationId: int) =
+        let intent = (new Intent(this, typedefof<MainActivity>)).AddFlags(ActivityFlags.ClearTop)
+        let pendingIntent = PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
+
+        (new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID))
+            .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
+            .SetContentText(sprintf "%s: %s has accepted your challenge!" playerInCommunity.CommunityName playerInCommunity.PlayerName)
+            .SetAutoCancel(true)
+            .SetShowWhen(false)
+            .SetContentIntent(pendingIntent)
+
+    member private this.GetButtonPendingIntent (action: string) (playerInCommunity: PlayerInCommunity) (notificationId: int) =
+        let intent =
+            (new Intent(this, typedefof<ChallengeBroadcastReceiver>))
+                .SetAction(action)
+                .PutExtra("EXTRA_NOTIFICATION_ID", notificationId)
+                .PutExtra("EXTRA_CHALLENGE_FROM", playerInCommunity.PlayerName)
+                .PutExtra("EXTRA_COMMUNITY_NAME", playerInCommunity.CommunityName)
+
+        PendingIntent.GetBroadcast(this, 0, intent, PendingIntentFlags.OneShot)
+
+    member private this.SendNotification (messageBody: string) =
         let notificationId = messageBody.GetHashCode()
         let playerInCommunity = messageBody |> Relogify.MessageUtils.parsePlayerInCommunity
 
-        let challenges = getChallenges ()
-        match challenges |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity) with
+        match getChallenges () |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity) with
         | Some existingChallenge ->
             match existingChallenge.Type with
             | Outgoing ->
                 // If a challenge is received, and an outgoing challenge is in the list, remove the challenge and show "Accepted" notification
                 removeChallengeFromLocalStorage playerInCommunity |> Async.RunSynchronously |> ignore
 
-                // TODO: Break into smaller functions
-                // Show "Accepted" notification
-                let intent = new Intent(this, typedefof<MainActivity>)
-
-                intent.AddFlags(ActivityFlags.ClearTop) |> ignore
-
-                let pendingIntent =
-                    PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
-
-                let notificationBuilder =
-                    new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
-
-                notificationBuilder
-                    .SetSmallIcon(ResourceAlias.Drawable.ic_launcher)
-                    .SetContentText(sprintf "%s: %s has accepted your challenge!" playerInCommunity.CommunityName playerInCommunity.PlayerName)
-                    .SetAutoCancel(true)
-                    .SetShowWhen(false)
-                    .SetContentIntent(pendingIntent)
-                |> ignore
+                let notificationBuilder = this.GetNotificationBuilder messageBody playerInCommunity notificationId
 
                 let notificationManager = NotificationManager.FromContext(this)
                 notificationManager.Notify(notificationId, notificationBuilder.Build())
@@ -86,41 +88,13 @@ type AndroidFirebaseMessagingService() =
             // If a challenge is received, and no outgoing challenge is in the list, add an incoming challenge and show "Accept/Decline" choice
             addChallengeToLocalStorage playerInCommunity (ChallengeType.Incoming notificationId) |> Async.RunSynchronously |> ignore
 
-            let intent = new Intent(this, typedefof<MainActivity>)
-
-            intent.AddFlags(ActivityFlags.ClearTop) |> ignore
-
-            let pendingIntent =
-                PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
-
-            let acceptIntent = new Intent(this, typedefof<ChallengeBroadcastReceiver>)
-            acceptIntent.SetAction("ACTION_ACCEPT") |> ignore
-            acceptIntent.PutExtra("EXTRA_NOTIFICATION_ID", notificationId) |> ignore
-            acceptIntent.PutExtra("EXTRA_CHALLENGE_FROM", playerInCommunity.PlayerName) |> ignore
-            acceptIntent.PutExtra("EXTRA_COMMUNITY_NAME", playerInCommunity.CommunityName) |> ignore
-
-            let acceptPendingIntent = PendingIntent.GetBroadcast(this, 0, acceptIntent, PendingIntentFlags.OneShot)
-
-            let declineIntent = new Intent(this, typedefof<ChallengeBroadcastReceiver>)
-            declineIntent.SetAction("ACTION_DECLINE") |> ignore
-            declineIntent.PutExtra("EXTRA_NOTIFICATION_ID", notificationId) |> ignore
-            declineIntent.PutExtra("EXTRA_CHALLENGE_FROM", playerInCommunity.PlayerName) |> ignore
-            declineIntent.PutExtra("EXTRA_COMMUNITY_NAME", playerInCommunity.CommunityName) |> ignore
-
-            let declinePendingIntent = PendingIntent.GetBroadcast(this, 0, declineIntent, PendingIntentFlags.OneShot)
+            let acceptPendingIntent = this.GetButtonPendingIntent "ACTION_ACCEPT" playerInCommunity notificationId
+            let declinePendingIntent = this.GetButtonPendingIntent "ACTION_DECLINE" playerInCommunity notificationId
 
             let notificationBuilder =
-                new NotificationCompat.Builder(this, MainActivity.CHANNEL_ID)
-
-            notificationBuilder
-                .SetSmallIcon(ResourceAlias.Drawable.ic_launcher) // TODO: Icon
-                .SetContentText(messageBody)
-                .SetAutoCancel(true)
-                .SetShowWhen(false)
-                .SetContentIntent(pendingIntent)
-                .AddAction(0, "Accept", acceptPendingIntent)
-                .AddAction(0, "Decline", declinePendingIntent)
-            |> ignore
+                (this.GetNotificationBuilder messageBody playerInCommunity notificationId)
+                    .AddAction(0, "Accept", acceptPendingIntent)
+                    .AddAction(0, "Decline", declinePendingIntent)
 
             let notificationManager = NotificationManager.FromContext(this)
             notificationManager.Notify(notificationId, notificationBuilder.Build())
