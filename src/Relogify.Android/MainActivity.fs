@@ -21,7 +21,6 @@ type MainActivity() =
 
     let TAG: string = "MainActivity"
     static member CHANNEL_ID: string = "relogify_challenges_channel"
-//    static member NOTIFICATION_ID: int = 123
 
     member private this.CreateNotificationChannel () =
         if Build.VERSION.SdkInt >= BuildVersionCodes.O then

@@ -17,8 +17,6 @@ let respondToChallenge (fromPlayer: string) (communityName: string) =
     // NOTE: This might behave incorrectly if more that one player in the same community is allowed in the settings
     let maybePlayerInCommunity = applicationSettings.Communities |> List.tryFind (fun c -> c.CommunityName = communityName)
 
-    // TODO: Remove pending notification
-
     // "fromPlayer" becomes "toPlayer" in the response-challenge
     maybePlayerInCommunity
     |> Option.map (fun playerInCommunity -> performChallengeApiCall playerInCommunity.PlayerName fromPlayer communityName |> Async.Ignore)

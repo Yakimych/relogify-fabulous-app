@@ -10,6 +10,8 @@
 
     <ItemGroup>
         <Compile Include="TimerTests.fs" />
+        <Compile Include="AddResultTests.fs" />
+        <Compile Include="ChallengeStateTests.fs" />
         <Compile Include="MessageUtilsTests.fs" />
         <Compile Include="Program.fs" />
     </ItemGroup>
