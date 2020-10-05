@@ -42,8 +42,7 @@ let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInC
 
 let initModel () =
     // TODO: Command to read challenges instead
-//    let challenges = getChallenges ()
-    let challenges = []
+    let challenges = getChallenges ()
 
     { resultModel =
         { OwnPoints = 0
