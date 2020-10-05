@@ -32,14 +32,13 @@ type Model =
       state: State }
 
 let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInCommunity) =
-    // TODO: Unit test and then refactor
-    let maybeChallenge = challenges |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity)
-    match maybeChallenge with
-    | None -> NotChallenged
-    | Some challenge ->
+    challenges
+    |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity)
+    |> Option.map (fun challenge ->
         match challenge.Type with
         | Outgoing -> WaitingForResponse
-        | Incoming notificationId -> ReceivedChallenge notificationId
+        | Incoming notificationId -> ReceivedChallenge notificationId)
+    |> Option.defaultValue NotChallenged
 
 let initModel () =
     // TODO: Command to read challenges instead
@@ -185,7 +184,6 @@ let updateChallengeModel (ownName: string) (opponentName: string) (communityName
     | ChallengeInitiated newChallengeList -> { challengeModel with IsSendingChallenge = false; Challenges = newChallengeList }, [] //, Some ChallengesUpdated
     | ChallengeAccepted -> challengeModel, [] //, Some ChallengesUpdated
 
-// TODO: This is getting complicated to follow - add unit test
 let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match model.state, msg with
     | (_, ChallengeMessage challengeMsg) ->

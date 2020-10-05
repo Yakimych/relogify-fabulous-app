@@ -34,7 +34,7 @@ let ``Extra time is not toggled while timer is running``() =
 
     Assert.Equal(false, finalModel.ExtraTime)
 
-[<Property(MaxTest = 1000)>]
+[<Property>]
 let ``Elapsed time does not get incremented while timer is paused``
     (startTime: DateTime)
     (millisecondsBetweenTicks: int)
