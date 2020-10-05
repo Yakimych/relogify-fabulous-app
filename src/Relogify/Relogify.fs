@@ -96,7 +96,7 @@ module App =
           SettingsModel = Settings.initModel true }, cmdMsgs
 
     let pushPage (page: Page) (model: Model): Model =
-        { model with PageStack = [page] @ model.PageStack }
+        { model with PageStack = page :: model.PageStack }
 
     let popPage (model: Model): Model =
         match model.PageStack with

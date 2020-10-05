@@ -7,8 +7,6 @@ open Android.App
 open Android.Content
 open Android.Content.PM
 open Android.Runtime
-open Android.Views
-open Android.Widget
 open Android.OS
 open Xamarin.Forms.Platform.Android
 
@@ -46,7 +44,6 @@ type MainActivity() =
         else
             Log.Debug(TAG, "Google Play Services is available.") |> ignore
             true
-
 
     override this.OnCreate (bundle: Bundle) =
         FormsAppCompatActivity.TabLayoutResource <- Resources.Layout.Tabbar
