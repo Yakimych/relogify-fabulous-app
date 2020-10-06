@@ -84,28 +84,37 @@ module App =
         let applicationSettings = getApplicationSettings ()
 
         let opponentListModel, opponentListCmdMsgs = applicationSettings.Communities |> OpponentList.initModel
-        let cmdMsgs = opponentListCmdMsgs |> List.map OpponentListCmdMsg
+        let addResultModel, addResultCmdMsgs = AddResult.initModel ()
+        let cmdMsgs = (opponentListCmdMsgs |> List.map OpponentListCmdMsg) @ (addResultCmdMsgs |> List.map AddResultCmdMsg)
 
         { PageStack = []
           SelectedTabIndex = if applicationSettings |> areSet then selectOpponentTabIndex else settingsTabIndex
           OpponentListModel = opponentListModel
-          AddResultModel = AddResult.initModel ()
+          AddResultModel = addResultModel
           TimerModel = Timer.initModel
           ApplicationSettings = applicationSettings
           FirstRunModel = FirstRun.initModel ()
           SettingsModel = Settings.initModel true }, cmdMsgs
 
-    let pushPage (page: Page) (model: Model): Model =
-        { model with PageStack = page :: model.PageStack }
+    let pushPage (page: Page) (model: Model): Model * CmdMsg list =
+        let modelWithNewPage = { model with PageStack = page :: model.PageStack }
+        match page with
+        | AddResult _ ->
+            let addResultModel, addResultCmdMsgs = AddResult.initModel ()
+            { modelWithNewPage with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
+        | Timer ->
+            { modelWithNewPage with TimerModel = Timer.initModel }, []
 
-    let popPage (model: Model): Model =
+    let popPage (model: Model): Model * CmdMsg list =
         match model.PageStack with
-        | [] -> model
+        | [] -> model, []
         | pageToPop :: restOfPages ->
             let newModel = { model with PageStack = restOfPages }
             match pageToPop with
-            | Timer -> { newModel with TimerModel = Timer.initModel }
-            | AddResult _ -> { newModel with AddResultModel = AddResult.initModel () }
+            | Timer -> { newModel with TimerModel = Timer.initModel }, []
+            | AddResult _ ->
+                let addResultModel, addResultCmdMsgs = AddResult.initModel ()
+                { newModel with AddResultModel = addResultModel }, addResultCmdMsgs |> List.map AddResultCmdMsg
 
     let addResultPageShouldBePopped (addResultMsg: AddResult.Msg): bool =
         match addResultMsg with
@@ -118,7 +127,8 @@ module App =
             let opponentListModel, opponentListCmdMsgs, opponentListOutMsg = OpponentList.update model.OpponentListModel opponentListMsg
             match opponentListOutMsg with
             | Some (OpponentList.PlayerSelectedOutMsg playerInCommunity) ->
-                model |> pushPage (AddResult playerInCommunity), opponentListCmdMsgs |> List.map OpponentListCmdMsg
+                let pushedPage, cmdMsgs = model |> pushPage (AddResult playerInCommunity)
+                pushedPage, (opponentListCmdMsgs |> List.map OpponentListCmdMsg) @ cmdMsgs
             | None ->
                 { model with OpponentListModel = opponentListModel }, opponentListCmdMsgs |> List.map OpponentListCmdMsg
 
@@ -172,8 +182,8 @@ module App =
             { model with ApplicationSettings = newSettings; OpponentListModel = opponentListModel }, cmdMsgs
 
         | SetCurrentPage tabIndex -> { model with    SelectedTabIndex = tabIndex }, []
-        | PushPage page -> model |> pushPage page, []
-        | PopPage -> model |> popPage, []
+        | PushPage page -> model |> pushPage page
+        | PopPage -> model |> popPage
         | PopBackToHome -> { model with PageStack = [] }, []
 
     let getPageTitle (tabIndex: int) =

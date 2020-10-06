@@ -5,8 +5,6 @@ open Xunit
 open AddResult
 open FsCheck.Xunit
 
-let initialModel = initModel ()
-
 let updateModel (model: Model) (msg: Msg): Model =
     let updateModel, _ = update model msg "playerName" "opponentName" "communityName"
     updateModel
