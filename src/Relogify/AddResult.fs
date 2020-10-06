@@ -82,9 +82,9 @@ type AddResultModel =
 type CmdMsg =
     | AddResultCmdMsg of AddResultModel
     | InitiateChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
-    | ConfirmChallengeCmdMsg of notificationId: int * fromPlayer: string * toPlayer: string * communityName : string
-    | RemoveChallengeCmdMsg of notificationId: int * fromPlayer: string * toPlayer: string * communityName : string
-    | CancelChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
+    | ConfirmChallengeCmdMsg of notificationId: int * fromPlayer: string * communityName : string
+    | RemoveChallengeCmdMsg of notificationId: int * toPlayer: string * communityName : string
+    | CancelChallengeCmdMsg of toPlayer: string * communityName : string
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
@@ -104,7 +104,9 @@ let addResultCmd (resultModel: AddResultModel) =
                 resultModel.ExtraTime
             )
 
-        // TODO: Remove challenge(s) for this opponent from Local storage
+        let playerToRemoveChallengeFor =
+            { PlayerName = resultModel.OpponentName; CommunityName = resultModel.CommunityName }
+        do! removeChallengeFromLocalStorage playerToRemoveChallengeFor |> Async.Ignore
 
         return
             match result.Data with
@@ -118,7 +120,7 @@ let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName:
         do! Async.SwitchToThreadPool()
 
         let! newChallengeList = addChallengeToLocalStorage { PlayerName = toPlayer; CommunityName = communityName } Outgoing
-        let! response = ChallengeManager.performChallengeApiCall fromPlayer toPlayer communityName
+        let! response = performChallengeApiCall fromPlayer toPlayer communityName
 
         if response.StatusCode >= 200 && response.StatusCode < 300 then
             return ChallengeInitiated newChallengeList
@@ -128,16 +130,12 @@ let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName:
     }
     |> Cmd.ofAsyncMsg
 
-// TODO: Remove duplication
-let confirmChallengeCmd (notificationId: int) (fromPlayer: string) (toPlayer: string) (communityName: string) =
+let confirmChallengeCmd (notificationId: int) (fromPlayer: string) (communityName: string) =
     async {
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = fromPlayer; CommunityName = communityName }
+        cancelNotification notificationId
 
-        // TODO: Move out of AddResult?
-        let messagingService = DependencyService.Get<IMessagingService>()
-        messagingService.CancelNotification notificationId
-
-        do! ChallengeManager.respondToChallenge fromPlayer communityName
+        do! respondToChallenge fromPlayer communityName
         return ChallengeInitiated newChallengeList
     }
     |> Cmd.ofAsyncMsg
@@ -145,10 +143,7 @@ let confirmChallengeCmd (notificationId: int) (fromPlayer: string) (toPlayer: st
 let removeChallengeCmd (notificationId: int) (toPlayer: string) (communityName: string) =
     async {
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
-
-        // TODO: Move out of AddResult?
-        let messagingService = DependencyService.Get<IMessagingService>()
-        messagingService.CancelNotification notificationId
+        cancelNotification notificationId
 
         return ChallengeInitiated newChallengeList
     }
@@ -165,9 +160,9 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
     | InitiateChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> initiateChallengeCmd fromPlayer toPlayer communityName |> Cmd.map ChallengeMessage
-    | ConfirmChallengeCmdMsg (notificationId, fromPlayer, toPlayer, communityName) -> confirmChallengeCmd notificationId fromPlayer toPlayer communityName |> Cmd.map ChallengeMessage
-    | RemoveChallengeCmdMsg (notificationId, fromPlayer, toPlayer, communityName) -> removeChallengeCmd notificationId toPlayer communityName |> Cmd.map ChallengeMessage
-    | CancelChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> cancelChallengeCmd toPlayer communityName |> Cmd.map ChallengeMessage
+    | ConfirmChallengeCmdMsg (notificationId, fromPlayer, communityName) -> confirmChallengeCmd notificationId fromPlayer communityName |> Cmd.map ChallengeMessage
+    | RemoveChallengeCmdMsg (notificationId, toPlayer, communityName) -> removeChallengeCmd notificationId toPlayer communityName |> Cmd.map ChallengeMessage
+    | CancelChallengeCmdMsg (toPlayer, communityName) -> cancelChallengeCmd toPlayer communityName |> Cmd.map ChallengeMessage
 
 let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
@@ -177,15 +172,12 @@ let toAddResultModel playerName opponentName communityName (resultModel: ResultM
       OpponentPoints = resultModel.OpponentPoints
       ExtraTime = resultModel.ExtraTime }
 
-let hasChallenged (challenges: Challenge list) (playerInCommunity: PlayerInCommunity): bool =
-    challenges |> List.exists (fun c -> c.PlayerInCommunity = playerInCommunity)
-
 let updateChallengeModel (ownName: string) (opponentName: string) (communityName: string) (challengeModel: ChallengeModel) (challengeMsg: ChallengeMsg) =
     match challengeMsg with
     | InitiateChallenge -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
-    | ConfirmChallenge notificationId -> { challengeModel with IsSendingChallenge = false }, [CmdMsg.ConfirmChallengeCmdMsg (notificationId, opponentName, ownName, communityName)]
-    | RemoveChallenge notificationId -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, ownName, opponentName, communityName)]
-    | CancelChallenge -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (ownName, opponentName, communityName)]
+    | ConfirmChallenge notificationId -> { challengeModel with IsSendingChallenge = false }, [CmdMsg.ConfirmChallengeCmdMsg (notificationId, opponentName, communityName)]
+    | RemoveChallenge notificationId -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, opponentName, communityName)]
+    | CancelChallenge -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (opponentName, communityName)]
     | ChallengeInitiated newChallengeList -> { challengeModel with IsSendingChallenge = false; Challenges = newChallengeList }, [] //, Some ChallengesUpdated
     | ChallengeAccepted -> challengeModel, [] //, Some ChallengesUpdated
 
@@ -228,7 +220,7 @@ let getIntValueOrZero (stringValue: string): int =
     let succeeded, intValue = Int32.TryParse(stringValue)
     if succeeded then intValue else 0
 
-let maxSelectablePoints = 100
+let maxSelectablePoints = 20
 
 let applyBaseButtonStyle (button: ViewElement) =
     button
