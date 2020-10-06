@@ -54,6 +54,8 @@ let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityNa
 
     Http.AsyncRequest(challengeUrl)
 
+let cancelNotification = DependencyService.Get<IMessagingService>().CancelNotification
+
 let respondToChallenge (fromPlayer: string) (communityName: string) =
     let applicationSettings = getApplicationSettings ()
 
