@@ -1,7 +1,50 @@
 module Relogify.ChallengeManager
 
+open System
 open FSharp.Data
 open Relogify.ApplicationSettings
+open Xamarin.Forms
+open Newtonsoft.Json
+
+type ChallengeType =
+    | Outgoing
+    | Incoming of notificationId: int
+
+type Challenge = {
+    PlayerInCommunity: PlayerInCommunity
+    Type: ChallengeType
+    UtcTimeStamp: DateTime }
+
+[<Literal>]
+let ChallengesStorageKey = "challenges_key"
+
+let getChallenges (): Challenge list =
+    getApplicationPropertyOrNone ChallengesStorageKey |> Option.defaultValue []
+
+let saveChallenges (challenges : Challenge list) =
+    let json = JsonConvert.SerializeObject(challenges)
+    Application.Current.Properties.[ChallengesStorageKey] <- json
+    Application.Current.SavePropertiesAsync ()
+
+let addChallengeToLocalStorage (playerInCommunity: PlayerInCommunity) (challengeType: ChallengeType) =
+    async {
+        let savedChallenges = getChallenges ()
+        let newChallengeList =
+            if savedChallenges |> List.exists (fun c -> c.PlayerInCommunity = playerInCommunity) then
+                savedChallenges
+            else
+                { Type = challengeType; PlayerInCommunity = playerInCommunity; UtcTimeStamp = DateTime.UtcNow; } :: savedChallenges
+        do! saveChallenges newChallengeList |> Async.AwaitTask
+        return newChallengeList
+    }
+
+let removeChallengeFromLocalStorage (playerInCommunity: PlayerInCommunity) =
+    async {
+        let savedChallenges = getChallenges ()
+        let newChallengeList = savedChallenges |> List.filter (fun c -> c.PlayerInCommunity <> playerInCommunity)
+        do! saveChallenges newChallengeList |> Async.AwaitTask
+        return newChallengeList
+    }
 
 let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityName: string) =
     let notificationFunctionBaseUrl = ConfigManager.getNotificationFunctionBaseUrl ()

@@ -3,6 +3,7 @@ module ChallengeStateTests
 open System
 open Relogify
 open Relogify.ApplicationSettings
+open Relogify.ChallengeManager
 open Xunit
 open AddResult
 open FsCheck.Xunit

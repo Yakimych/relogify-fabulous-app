@@ -3,11 +3,13 @@
 open Android.Util
 open Firebase.Messaging
 open Android.Support.V4.App
+open Relogify
 open Relogify.ApplicationSettings
 open WindowsAzure.Messaging
 open Android.App
 open Android.Content
 open Xamarin.Forms
+open ChallengeManager
 
 type ResourceAlias = Resource
 
@@ -20,16 +22,14 @@ type AndroidFirebaseMessagingService() =
     let TAG: string = "RelogifyFirebaseMsgService"
     let androidTokenPropertyKey: string = "android_notification_hub_token"
 
-    interface Relogify.IMessagingService with
+    interface IMessagingService with
         member this.SendRegistrationToServer (): Async<unit> =
             async {
                 let savedToken = Application.Current.Properties.[androidTokenPropertyKey] :?> string
 
-                let listenConnectionString =
-                    Relogify.ConfigManager.getListenConnectionString ()
+                let listenConnectionString = ConfigManager.getListenConnectionString ()
 
-                let notificationHubName =
-                    Relogify.ConfigManager.getNotificationHubName ()
+                let notificationHubName = ConfigManager.getNotificationHubName ()
 
                 let hub = new NotificationHub(notificationHubName, listenConnectionString, Android.App.Application.Context)
 
@@ -45,7 +45,7 @@ type AndroidFirebaseMessagingService() =
             let notificationManagerCompat = NotificationManagerCompat.From(Application.Context)
             notificationManagerCompat.Cancel(notificationId)
 
-    member private this.GetNotificationBuilder (messageBody: string) (playerInCommunity: PlayerInCommunity) (notificationId: int) =
+    member private this.GetNotificationBuilder (playerInCommunity: PlayerInCommunity) =
         let intent = (new Intent(this, typedefof<MainActivity>)).AddFlags(ActivityFlags.ClearTop)
         let pendingIntent = PendingIntent.GetActivity(this, 0, intent, PendingIntentFlags.OneShot)
 
@@ -68,7 +68,7 @@ type AndroidFirebaseMessagingService() =
 
     member private this.SendNotification (messageBody: string) =
         let notificationId = messageBody.GetHashCode()
-        let playerInCommunity = messageBody |> Relogify.MessageUtils.parsePlayerInCommunity
+        let playerInCommunity = messageBody |> MessageUtils.parsePlayerInCommunity
 
         match getChallenges () |> List.tryFind (fun c -> c.PlayerInCommunity = playerInCommunity) with
         | Some existingChallenge ->
@@ -77,7 +77,7 @@ type AndroidFirebaseMessagingService() =
                 // If a challenge is received, and an outgoing challenge is in the list, remove the challenge and show "Accepted" notification
                 removeChallengeFromLocalStorage playerInCommunity |> Async.RunSynchronously |> ignore
 
-                let notificationBuilder = this.GetNotificationBuilder messageBody playerInCommunity notificationId
+                let notificationBuilder = this.GetNotificationBuilder playerInCommunity
 
                 let notificationManager = NotificationManager.FromContext(this)
                 notificationManager.Notify(notificationId, notificationBuilder.Build())
@@ -92,7 +92,7 @@ type AndroidFirebaseMessagingService() =
             let declinePendingIntent = this.GetButtonPendingIntent "ACTION_DECLINE" playerInCommunity notificationId
 
             let notificationBuilder =
-                (this.GetNotificationBuilder messageBody playerInCommunity notificationId)
+                (this.GetNotificationBuilder playerInCommunity)
                     .AddAction(0, "Accept", acceptPendingIntent)
                     .AddAction(0, "Decline", declinePendingIntent)
 
@@ -119,7 +119,7 @@ type AndroidFirebaseMessagingService() =
             Application.Current.Properties.[androidTokenPropertyKey] <- token
             do! Application.Current.SavePropertiesAsync() |> Async.AwaitTask
 
-            do! (this :> Relogify.IMessagingService).SendRegistrationToServer ()
+            do! (this :> IMessagingService).SendRegistrationToServer ()
         } |> Async.StartAsTask |> ignore
 
 [<assembly: Dependency(typeof<AndroidFirebaseMessagingService>)>]

@@ -4,6 +4,7 @@ open System
 open Fabulous
 open Fabulous.XamarinForms
 open Relogify.ApplicationSettings
+open Relogify.ChallengeManager
 open Xamarin.Forms
 open Relogify.Graphql
 
