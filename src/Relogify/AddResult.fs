@@ -19,7 +19,7 @@ type ResultModel =
       ExtraTime: bool }
 
 type ChallengeModel =
-    { IsSendingChallenge: bool
+    { IsProcessingChallenge: bool
       Challenges: Challenge list }
 
 type State =
@@ -80,7 +80,7 @@ let initialModel =
           OpponentPoints = 0
           ExtraTime = false }
       challengeModel =
-        { IsSendingChallenge = false
+        { IsProcessingChallenge = false
           Challenges = [] }
       state = EditingResult }
 
@@ -178,11 +178,11 @@ let toAddResultModel playerName opponentName communityName (resultModel: ResultM
 
 let updateChallengeModel (ownName: string) (opponentName: string) (communityName: string) (challengeModel: ChallengeModel) (challengeMsg: ChallengeMsg) =
     match challengeMsg with
-    | InitiateChallenge -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
-    | AcceptChallenge notificationId -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.AcceptChallengeCmdMsg (notificationId, opponentName, communityName)]
-    | RemoveChallenge notificationId -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, opponentName, communityName)]
-    | CancelChallenge -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (opponentName, communityName)]
-    | ChallengesUpdated newChallengeList -> { challengeModel with IsSendingChallenge = false; Challenges = newChallengeList }, []
+    | InitiateChallenge -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
+    | AcceptChallenge notificationId -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.AcceptChallengeCmdMsg (notificationId, opponentName, communityName)]
+    | RemoveChallenge notificationId -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, opponentName, communityName)]
+    | CancelChallenge -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (opponentName, communityName)]
+    | ChallengesUpdated newChallengeList -> { challengeModel with IsProcessingChallenge = false; Challenges = newChallengeList }, []
     | ChallengeAccepted -> challengeModel, [CmdMsg.ReReadChallengesCmdMsg]
 
 let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (opponentName: string): Model * CmdMsg list =
@@ -322,7 +322,7 @@ let view (model: Model) (dispatch: Msg -> unit) (ownName: string) (opponentName:
                                  orientation = StackOrientation.Horizontal,
                                  children = [
                                      View.Label(lineBreakMode = LineBreakMode.TailTruncation, text = opponentName, fontSize = FontSize.fromNamedSize(NamedSize.Large))
-                                     challengeIcon (getChallengeState model.challengeModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.challengeModel.IsSendingChallenge dispatch
+                                     challengeIcon (getChallengeState model.challengeModel.Challenges { PlayerName = opponentName; CommunityName = communityName }) model.challengeModel.IsProcessingChallenge dispatch
                                 ]
                              ).Column(1).Row(0)
 
