@@ -53,6 +53,8 @@ module App =
 
     let updateSettingsCmd (settings : ApplicationSettings) =
         async {
+            do! Async.SwitchToThreadPool ()
+
             do! saveApplicationSettings settings |> Async.AwaitTask
             return getApplicationSettings () |> SettingsUpdated
         } |> Cmd.ofAsyncMsg
