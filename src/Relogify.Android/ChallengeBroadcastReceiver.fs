@@ -14,7 +14,7 @@ type ChallengeBroadcastReceiver() =
         let challengeFrom = intent.GetStringExtra("EXTRA_CHALLENGE_FROM")
         let communityName = intent.GetStringExtra("EXTRA_COMMUNITY_NAME")
 
-        ApplicationSettings.removeChallengeFromLocalStorage { PlayerName = challengeFrom; CommunityName = communityName }
+        ChallengeManager.removeChallengeFromLocalStorage { PlayerName = challengeFrom; CommunityName = communityName }
         |> Async.RunSynchronously
         |> ignore
 
