@@ -41,19 +41,6 @@ let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInC
         | Incoming notificationId -> ReceivedChallenge notificationId)
     |> Option.defaultValue NotChallenged
 
-let initModel () =
-    // TODO: Command to read challenges instead
-    let challenges = getChallenges ()
-
-    { resultModel =
-        { OwnPoints = 0
-          OpponentPoints = 0
-          ExtraTime = false }
-      challengeModel =
-        { IsSendingChallenge = false
-          Challenges = challenges }
-      state = EditingResult }
-
 type ChallengeMsg =
     | InitiateChallenge
     | RemoveChallenge of notificationId: int
@@ -61,6 +48,7 @@ type ChallengeMsg =
     | ConfirmChallenge of notificationId: int
     | ChallengeInitiated of Challenge list
     | ChallengeAccepted
+    | ChallengesUpdated of Challenge list
 
 type Msg =
     | ChallengeMessage of ChallengeMsg
@@ -85,6 +73,19 @@ type CmdMsg =
     | ConfirmChallengeCmdMsg of notificationId: int * fromPlayer: string * communityName : string
     | RemoveChallengeCmdMsg of notificationId: int * toPlayer: string * communityName : string
     | CancelChallengeCmdMsg of toPlayer: string * communityName : string
+    | ReReadChallengesCmdMsg
+
+let initialModel =
+    { resultModel =
+        { OwnPoints = 0
+          OpponentPoints = 0
+          ExtraTime = false }
+      challengeModel =
+        { IsSendingChallenge = false
+          Challenges = [] }
+      state = EditingResult }
+
+let initModel () = (initialModel, [CmdMsg.ReReadChallengesCmdMsg])
 
 let addResultCmd (resultModel: AddResultModel) =
     async {
@@ -125,8 +126,7 @@ let initiateChallengeCmd (fromPlayer: string) (toPlayer: string) (communityName:
         if response.StatusCode >= 200 && response.StatusCode < 300 then
             return ChallengeInitiated newChallengeList
         else
-            // TODO: Handle "Challenge failed"
-            return ChallengeInitiated newChallengeList
+            return ChallengeInitiated newChallengeList // TODO: Handle "Challenge failed"
     }
     |> Cmd.ofAsyncMsg
 
@@ -156,6 +156,10 @@ let cancelChallengeCmd (toPlayer: string) (communityName: string) =
     }
     |> Cmd.ofAsyncMsg
 
+let reReadChallengesCmd () =
+    let challenges = getChallenges ()
+    Cmd.ofMsg <| ChallengesUpdated challenges
+
 let mapCommands: CmdMsg -> Cmd<Msg> =
     function
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
@@ -163,6 +167,7 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     | ConfirmChallengeCmdMsg (notificationId, fromPlayer, communityName) -> confirmChallengeCmd notificationId fromPlayer communityName |> Cmd.map ChallengeMessage
     | RemoveChallengeCmdMsg (notificationId, toPlayer, communityName) -> removeChallengeCmd notificationId toPlayer communityName |> Cmd.map ChallengeMessage
     | CancelChallengeCmdMsg (toPlayer, communityName) -> cancelChallengeCmd toPlayer communityName |> Cmd.map ChallengeMessage
+    | ReReadChallengesCmdMsg -> reReadChallengesCmd () |> Cmd.map ChallengeMessage
 
 let toAddResultModel playerName opponentName communityName (resultModel: ResultModel): AddResultModel =
     { PlayerName = playerName
@@ -178,8 +183,9 @@ let updateChallengeModel (ownName: string) (opponentName: string) (communityName
     | ConfirmChallenge notificationId -> { challengeModel with IsSendingChallenge = false }, [CmdMsg.ConfirmChallengeCmdMsg (notificationId, opponentName, communityName)]
     | RemoveChallenge notificationId -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, opponentName, communityName)]
     | CancelChallenge -> { challengeModel with IsSendingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (opponentName, communityName)]
-    | ChallengeInitiated newChallengeList -> { challengeModel with IsSendingChallenge = false; Challenges = newChallengeList }, [] //, Some ChallengesUpdated
-    | ChallengeAccepted -> challengeModel, [] //, Some ChallengesUpdated
+    | ChallengeInitiated newChallengeList -> { challengeModel with IsSendingChallenge = false; Challenges = newChallengeList }, []
+    | ChallengesUpdated updatedChallenged -> { challengeModel with Challenges = updatedChallenged }, []
+    | ChallengeAccepted -> challengeModel, [CmdMsg.ReReadChallengesCmdMsg]
 
 let update (model: Model) (msg: Msg) (communityName: string) (ownName: string) (opponentName: string): Model * CmdMsg list =
     match model.state, msg with
