@@ -43,7 +43,7 @@ let getChallengeState (challenges: Challenge list) (playerInCommunity: PlayerInC
 
 type ChallengeMsg =
     | InitiateChallenge
-    | RemoveChallenge of notificationId: int
+    | DeclineChallenge of notificationId: int
     | CancelChallenge
     | AcceptChallenge of notificationId: int
     | ChallengesUpdated of Challenge list
@@ -70,7 +70,7 @@ type CmdMsg =
     | AddResultCmdMsg of AddResultModel
     | InitiateChallengeCmdMsg of fromPlayer: string * toPlayer: string * communityName : string
     | AcceptChallengeCmdMsg of notificationId: int * fromPlayer: string * communityName : string
-    | RemoveChallengeCmdMsg of notificationId: int * toPlayer: string * communityName : string
+    | DeclineChallengeCmdMsg of notificationId: int * toPlayer: string * communityName : string
     | CancelChallengeCmdMsg of toPlayer: string * communityName : string
     | ReReadChallengesCmdMsg
 
@@ -134,16 +134,17 @@ let acceptChallengeCmd (notificationId: int) (fromPlayer: string) (communityName
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = fromPlayer; CommunityName = communityName }
         cancelNotification notificationId
 
-        do! respondToChallenge fromPlayer communityName
+        do! respondToChallengeApiCall ChallengeResponse.Accept notificationId |> Async.Ignore
         return ChallengesUpdated newChallengeList
     }
     |> Cmd.ofAsyncMsg
 
-let removeChallengeCmd (notificationId: int) (toPlayer: string) (communityName: string) =
+let declineChallengeCmd (notificationId: int) (toPlayer: string) (communityName: string) =
     async {
         let! newChallengeList = removeChallengeFromLocalStorage { PlayerName = toPlayer; CommunityName = communityName }
         cancelNotification notificationId
 
+        do! respondToChallengeApiCall ChallengeResponse.Decline notificationId |> Async.Ignore
         return ChallengesUpdated newChallengeList
     }
     |> Cmd.ofAsyncMsg
@@ -164,7 +165,7 @@ let mapCommands: CmdMsg -> Cmd<Msg> =
     | AddResultCmdMsg resultModel -> addResultCmd resultModel
     | InitiateChallengeCmdMsg (fromPlayer, toPlayer, communityName) -> initiateChallengeCmd fromPlayer toPlayer communityName |> Cmd.map ChallengeMessage
     | AcceptChallengeCmdMsg (notificationId, fromPlayer, communityName) -> acceptChallengeCmd notificationId fromPlayer communityName |> Cmd.map ChallengeMessage
-    | RemoveChallengeCmdMsg (notificationId, toPlayer, communityName) -> removeChallengeCmd notificationId toPlayer communityName |> Cmd.map ChallengeMessage
+    | DeclineChallengeCmdMsg (notificationId, toPlayer, communityName) -> declineChallengeCmd notificationId toPlayer communityName |> Cmd.map ChallengeMessage
     | CancelChallengeCmdMsg (toPlayer, communityName) -> cancelChallengeCmd toPlayer communityName |> Cmd.map ChallengeMessage
     | ReReadChallengesCmdMsg -> reReadChallengesCmd () |> Cmd.map ChallengeMessage
 
@@ -180,7 +181,7 @@ let updateChallengeModel (ownName: string) (opponentName: string) (communityName
     match challengeMsg with
     | InitiateChallenge -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.InitiateChallengeCmdMsg (ownName, opponentName, communityName)]
     | AcceptChallenge notificationId -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.AcceptChallengeCmdMsg (notificationId, opponentName, communityName)]
-    | RemoveChallenge notificationId -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.RemoveChallengeCmdMsg (notificationId, opponentName, communityName)]
+    | DeclineChallenge notificationId -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.DeclineChallengeCmdMsg (notificationId, opponentName, communityName)]
     | CancelChallenge -> { challengeModel with IsProcessingChallenge = true }, [CmdMsg.CancelChallengeCmdMsg (opponentName, communityName)]
     | ChallengesUpdated newChallengeList -> { challengeModel with IsProcessingChallenge = false; Challenges = newChallengeList }, []
     | ChallengeAccepted -> challengeModel, [CmdMsg.ReReadChallengesCmdMsg]
@@ -298,7 +299,7 @@ let challengeIcon (challengeState: ChallengeState) (isSendingChallenge: bool) (d
                     View.ImageButton(
                         source = Image.fromPath "decline_icon.png",
                         backgroundColor = Color.LightPink,
-                        command = (fun _ -> dispatch <| ChallengeMessage (RemoveChallenge notificationId))
+                        command = (fun _ -> dispatch <| ChallengeMessage (DeclineChallenge notificationId))
                     ) |> applyImageButtonStyle
                 ])
 

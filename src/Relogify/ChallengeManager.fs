@@ -8,7 +8,9 @@ open Newtonsoft.Json
 
 type ChallengeType =
     | Outgoing
-    | Incoming of notificationId: int
+    | Incoming of challengeId: int
+
+type ChallengeResponse = Accept | Decline
 
 type Challenge = {
     PlayerInCommunity: PlayerInCommunity
@@ -46,25 +48,23 @@ let removeChallengeFromLocalStorage (playerInCommunity: PlayerInCommunity) =
         return newChallengeList
     }
 
-let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityName: string) =
-    let notificationFunctionBaseUrl = ConfigManager.getNotificationFunctionBaseUrl ()
-    let challengeFunctionName = "SendChallenge"
-    let challengeFunctionCode = ConfigManager.getChallengeFunctionCode ()
-    let challengeUrl = sprintf "%s/%s?code=%s&challengeFrom=%s&challengeTo=%s&communityName=%s" notificationFunctionBaseUrl challengeFunctionName challengeFunctionCode fromPlayer toPlayer communityName
+let headers = ["Content-Type", "application/json"]
 
-    Http.AsyncRequest(challengeUrl)
+let performChallengeApiCall (fromPlayer: string) (toPlayer: string) (communityName: string) =
+    let challengeApiBaseUrl = ConfigManager.getChallengeApiBaseUrl ()
+    let requestBody = TextRequest <| sprintf """ { "communityName": "%s", "fromPlayer": "%s", "toPlayer": "%s" }  """ communityName fromPlayer toPlayer
+
+    Http.AsyncRequest(challengeApiBaseUrl, headers = headers, httpMethod = HttpMethod.Post, body = requestBody)
+
+let asUrlParameter =
+    function
+    | Accept -> "accept"
+    | Decline -> "decline"
+
+let respondToChallengeApiCall (challengeResponse: ChallengeResponse) (challengeId: int) =
+    let challengeApiBaseUrl = ConfigManager.getChallengeApiBaseUrl ()
+    let challengeResponseUrl = sprintf "%s/rpc/%s/%d" challengeApiBaseUrl (challengeResponse |> asUrlParameter) challengeId
+
+    Http.AsyncRequest(challengeResponseUrl, httpMethod = HttpMethod.Post, body = TextRequest "")
 
 let cancelNotification = DependencyService.Get<IMessagingService>().CancelNotification
-
-let respondToChallenge (fromPlayer: string) (communityName: string) =
-    let applicationSettings = getApplicationSettings ()
-
-    // NOTE: This might behave incorrectly if more that one player in the same community is allowed in the settings
-    let maybePlayerInCommunity = applicationSettings.Communities |> List.tryFind (fun c -> c.CommunityName = communityName)
-
-    // "fromPlayer" becomes "toPlayer" in the response-challenge
-    maybePlayerInCommunity
-    |> Option.map (fun playerInCommunity -> performChallengeApiCall playerInCommunity.PlayerName fromPlayer communityName |> Async.Ignore)
-    |> Option.defaultValue (async { return () })
-
-

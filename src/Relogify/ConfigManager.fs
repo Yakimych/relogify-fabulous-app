@@ -30,14 +30,6 @@ let getSettingStringValue (settingName: string) (settingsObject: JObject) =
 let getApiUrl () =
     getSettingsObject() |> getSettingStringValue "ApiUrl"
 
-let getListenConnectionString () =
-    getSettingsObject() |> getSettingStringValue "ListenConnectionString"
+let getChallengeApiBaseUrl () =
+    getSettingsObject() |> getSettingStringValue "ChallengeApiBaseUrl"
 
-let getNotificationHubName () =
-    getSettingsObject() |> getSettingStringValue "NotificationHubName"
-
-let getNotificationFunctionBaseUrl () =
-    getSettingsObject() |> getSettingStringValue "NotificationFunctionBaseUrl"
-
-let getChallengeFunctionCode () =
-    getSettingsObject() |> getSettingStringValue "ChallengeFunctionCode"
